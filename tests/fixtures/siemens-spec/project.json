@@ -1,0 +1,33 @@
+{
+    "project":  {
+                    "name":  "VacuumInterlock",
+                    "path":  "_out/VacuumInterlock"
+                },
+    "portal":  {
+                   "new":  true,
+                   "ui":  false
+               },
+    "plcs":  [
+                 {
+                     "name":  "PLC_1",
+                     "orderNumber":  "OrderNumber:6ES7 512-1SK01-0AB0/V2.9",
+                     "modules":  [
+                                     "data/PLC_1.modules.csv"
+                                 ],
+                     "blocksXml":  [
+                                       "blocks/Main.xml",
+                                       "blocks/Main_Safety_RTG1.xml",
+                                       "blocks/Main_Safety_RTG1_DB.xml",
+                                       "blocks/FB_SafetyPermissives.xml",
+                                       "blocks/FB_PumpDown.xml"
+                                   ],
+                     "tags":  [
+                                  "data/PLC_1.tags.csv"
+                              ],
+                     "compile":  true
+                 }
+             ],
+    "build":  {
+                  "save":  true
+              }
+}

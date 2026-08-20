@@ -1,0 +1,114 @@
+# LADDER IR example - beamline vacuum interlock with pump-down sequence.
+# This file is what an LLM (any LLM) generates; validate with:
+#   ladder validate examples/vacuum_interlock.yaml
+#   ladder build    examples/vacuum_interlock.yaml -t all -o out
+
+ir_version: "0.1"
+name: VacuumInterlock
+description: Vacuum permissive interlock for a beam shutter, with a pump-down state machine.
+
+tags:
+  # inputs (fail-safe sense: 1 = OK / closed / healthy)
+  - {name: pressure_ok,        type: BOOL, direction: input,  comment: Gauge below setpoint}
+  - {name: gate_valve_closed,  type: BOOL, direction: input,  comment: Gate valve closed limit}
+  - {name: pump_running_fb,    type: BOOL, direction: input,  comment: Roughing pump running feedback}
+  - {name: reset_pb,           type: BOOL, direction: input,  comment: Operator reset pushbutton}
+  - {name: ack_pb,             type: BOOL, direction: input,  comment: Alarm acknowledge pushbutton}
+  - {name: pumpdown_request,   type: BOOL, direction: input,  comment: Start pump-down request}
+  # outputs
+  - {name: beam_shutter_permit, type: BOOL, direction: output, comment: Permit to open beam shutter}
+  - {name: pump_start_cmd,      type: BOOL, direction: output, comment: Roughing pump start command}
+  - {name: vacuum_alarm,        type: BOOL, direction: output, comment: Latched vacuum fault alarm}
+  - {name: pump_fault_alarm,    type: BOOL, direction: output, comment: Pump feedback lost while commanded}
+  # memory
+  - {name: pumpdown_state,      type: INT,  comment: Pump-down state machine code}
+  - {name: at_vacuum,           type: BOOL, comment: Vacuum reached and stable}
+
+programs:
+  - name: SafetyPermissives
+    description: Interlocks and alarms; runs every scan.
+    logic:
+      - element: interlock
+        id: IL_shutter
+        description: Beam shutter permissive - trips on vacuum or valve fault.
+        permissives:
+          all:
+            - pressure_ok
+            - gate_valve_closed
+        output: beam_shutter_permit
+        latching: true
+        reset: {signal: reset_pb, edge: rising}
+
+      - element: alarm
+        id: ALM_vacuum
+        description: Vacuum lost (debounced 2 s), latched until acknowledged.
+        condition: NOT pressure_ok
+        on_delay: T#2s
+        latching: true
+        ack: ack_pb
+        output: vacuum_alarm
+        severity: critical
+
+      - element: alarm
+        id: ALM_pump_fb
+        description: Pump commanded but no running feedback within 5 s.
+        condition: pump_start_cmd AND NOT pump_running_fb
+        on_delay: T#5s
+        latching: true
+        ack: ack_pb
+        output: pump_fault_alarm
+        severity: alarm
+
+  - name: PumpDown
+    description: Roughing pump-down sequence.
+    variables:
+      - {name: stable_ok, type: BOOL, comment: Pressure stable timer done}
+    logic:
+      - element: timer
+        id: T_stable
+        description: Pressure must hold for 10 s before declaring vacuum.
+        kind: TON
+        input: pressure_ok
+        preset: T#10s
+        done: stable_ok
+
+      - element: state_machine
+        id: SM_pumpdown
+        description: IDLE -> PUMPING -> AT_VACUUM, with fault fallback.
+        state_tag: pumpdown_state
+        initial: IDLE
+        states:
+          - name: IDLE
+            do:
+              - {target: pump_start_cmd, value: "FALSE"}
+              - {target: at_vacuum,      value: "FALSE"}
+            transitions:
+              - {when: pumpdown_request, goto: PUMPING}
+          - name: PUMPING
+            do:
+              - {target: pump_start_cmd, value: "TRUE"}
+            transitions:
+              - {when: pump_fault_alarm, goto: FAULT}
+              - {when: stable_ok,        goto: AT_VACUUM}
+          - name: AT_VACUUM
+            do:
+              - {target: at_vacuum, value: "TRUE"}
+            transitions:
+              - {when: NOT pressure_ok,  goto: PUMPING}
+              - {when: NOT pumpdown_request, goto: IDLE}
+          - name: FAULT
+            code: 99
+            do:
+              - {target: pump_start_cmd, value: "FALSE"}
+              - {target: at_vacuum,      value: "FALSE"}
+            transitions:
+              - {when: reset_pb AND NOT pump_fault_alarm, goto: IDLE}
+
+vendor:
+  siemens:
+    tia_version: "21.0"
+    fb_prefix: FB_
+    cpu: "OrderNumber:6ES7 512-1SK01-0AB0/V2.9"   # CPU 1512SP F-1 PN
+  rockwell:
+    processor: 1756-L85E
+    major_rev: 36

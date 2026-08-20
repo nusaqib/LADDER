@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ladder"
+version = "0.1.0"
+description = "LADDER - LLM-Assisted Design & Deployment of Engineering Routines. Vendor-agnostic PLC program generation: high-level IR -> vendor backends (Siemens TIA, Rockwell Studio 5000, PLCopen XML, Beckhoff TwinCAT)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Nusaqib", email = "nusaqib@lbl.gov" }]
+dependencies = [
+    "pydantic>=2.6",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+ladder = "ladder.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

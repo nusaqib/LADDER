@@ -1,0 +1,650 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Document>
+  <Engineering version="V19" />
+  <DocumentInfo>
+    <Created>2026-08-20T21:47:30.4170897Z</Created>
+    <ExportSetting>WithDefaults</ExportSetting>
+    <InstalledProducts>
+      <Product>
+        <DisplayName>Totally Integrated Automation Portal</DisplayName>
+        <DisplayVersion>V19</DisplayVersion>
+      </Product>
+      <OptionPackage>
+        <DisplayName>TIA Portal Openness</DisplayName>
+        <DisplayVersion>V19</DisplayVersion>
+      </OptionPackage>
+      <OptionPackage>
+        <DisplayName>TIA Portal Version Control Interface</DisplayName>
+        <DisplayVersion>V19</DisplayVersion>
+      </OptionPackage>
+      <Product>
+        <DisplayName>STEP 7 Professional</DisplayName>
+        <DisplayVersion>V19</DisplayVersion>
+      </Product>
+      <OptionPackage>
+        <DisplayName>STEP 7 Safety</DisplayName>
+        <DisplayVersion>V19</DisplayVersion>
+      </OptionPackage>
+      <Product>
+        <DisplayName>WinCC Basic/Comfort/Advanced</DisplayName>
+        <DisplayVersion>V19</DisplayVersion>
+      </Product>
+      <Product>
+        <DisplayName>WinCC Unified</DisplayName>
+        <DisplayVersion>V19</DisplayVersion>
+      </Product>
+    </InstalledProducts>
+  </DocumentInfo>
+  <SW.Blocks.FB ID="0">
+    <AttributeList>
+      <AutoNumber>true</AutoNumber>
+      <HeaderAuthor />
+      <HeaderFamily />
+      <HeaderName />
+      <HeaderVersion>0.1</HeaderVersion>
+      <Interface><Sections xmlns="http://www.siemens.com/automation/Openness/SW/Interface/v5">
+  <Section Name="Input" />
+  <Section Name="Output" />
+  <Section Name="InOut" />
+  <Section Name="Static">
+    <Member Name="IL_shutter_rst_mem" Datatype="Bool" Remanence="NonRetain" Accessibility="Public">
+      <AttributeList>
+        <BooleanAttribute Name="ExternalAccessible" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="ExternalVisible" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="ExternalWritable" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="SetPoint" SystemDefined="true">false</BooleanAttribute>
+      </AttributeList>
+      <Comment>
+        <MultiLanguageText Lang="en-US">edge memory for reset_pb</MultiLanguageText>
+      </Comment>
+    </Member>
+    <Member Name="ALM_vacuum_ton" Datatype="TON_TIME" Version="1.0" Remanence="NonRetain" Accessibility="Public">
+      <AttributeList>
+        <BooleanAttribute Name="ExternalAccessible" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="ExternalVisible" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="ExternalWritable" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="SetPoint" SystemDefined="true">true</BooleanAttribute>
+      </AttributeList>
+      <Comment>
+        <MultiLanguageText Lang="en-US">on-delay for alarm ALM_vacuum</MultiLanguageText>
+      </Comment>
+      <Sections>
+        <Section Name="None">
+          <Member Name="PT" Datatype="Time" />
+          <Member Name="ET" Datatype="Time" />
+          <Member Name="IN" Datatype="Bool" />
+          <Member Name="Q" Datatype="Bool" />
+        </Section>
+      </Sections>
+    </Member>
+    <Member Name="ALM_vacuum_ack_mem" Datatype="Bool" Remanence="NonRetain" Accessibility="Public">
+      <AttributeList>
+        <BooleanAttribute Name="ExternalAccessible" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="ExternalVisible" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="ExternalWritable" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="SetPoint" SystemDefined="true">false</BooleanAttribute>
+      </AttributeList>
+      <Comment>
+        <MultiLanguageText Lang="en-US">edge memory for ack_pb</MultiLanguageText>
+      </Comment>
+    </Member>
+    <Member Name="ALM_pump_fb_ton" Datatype="TON_TIME" Version="1.0" Remanence="NonRetain" Accessibility="Public">
+      <AttributeList>
+        <BooleanAttribute Name="ExternalAccessible" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="ExternalVisible" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="ExternalWritable" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="SetPoint" SystemDefined="true">true</BooleanAttribute>
+      </AttributeList>
+      <Comment>
+        <MultiLanguageText Lang="en-US">on-delay for alarm ALM_pump_fb</MultiLanguageText>
+      </Comment>
+      <Sections>
+        <Section Name="None">
+          <Member Name="PT" Datatype="Time" />
+          <Member Name="ET" Datatype="Time" />
+          <Member Name="IN" Datatype="Bool" />
+          <Member Name="Q" Datatype="Bool" />
+        </Section>
+      </Sections>
+    </Member>
+    <Member Name="ALM_pump_fb_ack_mem" Datatype="Bool" Remanence="NonRetain" Accessibility="Public">
+      <AttributeList>
+        <BooleanAttribute Name="ExternalAccessible" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="ExternalVisible" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="ExternalWritable" SystemDefined="true">true</BooleanAttribute>
+        <BooleanAttribute Name="SetPoint" SystemDefined="true">false</BooleanAttribute>
+      </AttributeList>
+      <Comment>
+        <MultiLanguageText Lang="en-US">edge memory for ack_pb</MultiLanguageText>
+      </Comment>
+    </Member>
+  </Section>
+  <Section Name="Temp" />
+  <Section Name="Constant" />
+</Sections></Interface>
+      <IsIECCheckEnabled>false</IsIECCheckEnabled>
+      <IsRetainMemResEnabled>false</IsRetainMemResEnabled>
+      <MemoryLayout>Optimized</MemoryLayout>
+      <MemoryReserve>100</MemoryReserve>
+      <Name>FB_SafetyPermissives</Name>
+      <Namespace />
+      <Number>2</Number>
+      <ProgrammingLanguage>SCL</ProgrammingLanguage>
+      <SetENOAutomatically>false</SetENOAutomatically>
+      <UDABlockProperties />
+      <UDAEnableTagReadback>false</UDAEnableTagReadback>
+    </AttributeList>
+    <ObjectList>
+      <MultilingualText ID="1" CompositionName="Comment">
+        <ObjectList>
+          <MultilingualTextItem ID="2" CompositionName="Items">
+            <AttributeList>
+              <Culture>en-US</Culture>
+              <Text> Interlocks and alarms; runs every scan.
+ generated by LADDER - do not edit by hand</Text>
+            </AttributeList>
+          </MultilingualTextItem>
+        </ObjectList>
+      </MultilingualText>
+      <SW.Blocks.CompileUnit ID="3" CompositionName="CompileUnits">
+        <AttributeList>
+          <NetworkSource><StructuredText xmlns="http://www.siemens.com/automation/Openness/SW/NetworkSource/StructuredText/v4">
+  <Blank Num="4" UId="21" />
+  <LineComment Inserted="false" NoClosingBracket="false" UId="22">
+    <Text UId="23"> interlock IL_shutter: Beam shutter permissive - trips on vacuum or valve fault.</Text>
+  </LineComment>
+  <NewLine Num="1" UId="24" />
+  <Blank Num="4" UId="25" />
+  <Token Text="IF" UId="26" />
+  <Blank Num="1" UId="27" />
+  <Token Text="NOT" UId="28" />
+  <Blank Num="1" UId="29" />
+  <Token Text="(" UId="30" />
+  <Access Scope="GlobalVariable" UId="31">
+    <Symbol UId="32">
+      <Component Name="pressure_ok" UId="33">
+        <BooleanAttribute Name="HasQuotes" UId="34">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="35" />
+  <Token Text="AND" UId="36" />
+  <Blank Num="1" UId="37" />
+  <Access Scope="GlobalVariable" UId="38">
+    <Symbol UId="39">
+      <Component Name="gate_valve_closed" UId="40">
+        <BooleanAttribute Name="HasQuotes" UId="41">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Token Text=")" UId="42" />
+  <Blank Num="1" UId="43" />
+  <Token Text="THEN" UId="44" />
+  <NewLine Num="1" UId="45" />
+  <Blank Num="8" UId="46" />
+  <Access Scope="GlobalVariable" UId="47">
+    <Symbol UId="48">
+      <Component Name="beam_shutter_permit" UId="49">
+        <BooleanAttribute Name="HasQuotes" UId="50">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="51" />
+  <Token Text=":=" UId="52" />
+  <Blank Num="1" UId="53" />
+  <Access Scope="LiteralConstant" UId="54">
+    <Constant UId="55">
+      <ConstantValue UId="57">FALSE</ConstantValue>
+    </Constant>
+  </Access>
+  <Token Text=";" UId="58" />
+  <NewLine Num="1" UId="59" />
+  <Blank Num="4" UId="60" />
+  <Token Text="END_IF" UId="61" />
+  <Token Text=";" UId="62" />
+  <NewLine Num="1" UId="63" />
+  <Blank Num="4" UId="64" />
+  <Token Text="IF" UId="65" />
+  <Blank Num="1" UId="66" />
+  <Access Scope="GlobalVariable" UId="67">
+    <Symbol UId="68">
+      <Component Name="reset_pb" UId="69">
+        <BooleanAttribute Name="HasQuotes" UId="70">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="71" />
+  <Token Text="AND" UId="72" />
+  <Blank Num="1" UId="73" />
+  <Token Text="NOT" UId="74" />
+  <Blank Num="1" UId="75" />
+  <Access Scope="LocalVariable" UId="76">
+    <Symbol UId="77">
+      <Component Name="IL_shutter_rst_mem" UId="78" />
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="79" />
+  <Token Text="AND" UId="80" />
+  <Blank Num="1" UId="81" />
+  <Token Text="(" UId="82" />
+  <Access Scope="GlobalVariable" UId="83">
+    <Symbol UId="84">
+      <Component Name="pressure_ok" UId="85">
+        <BooleanAttribute Name="HasQuotes" UId="86">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="87" />
+  <Token Text="AND" UId="88" />
+  <Blank Num="1" UId="89" />
+  <Access Scope="GlobalVariable" UId="90">
+    <Symbol UId="91">
+      <Component Name="gate_valve_closed" UId="92">
+        <BooleanAttribute Name="HasQuotes" UId="93">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Token Text=")" UId="94" />
+  <Blank Num="1" UId="95" />
+  <Token Text="THEN" UId="96" />
+  <NewLine Num="1" UId="97" />
+  <Blank Num="8" UId="98" />
+  <Access Scope="GlobalVariable" UId="99">
+    <Symbol UId="100">
+      <Component Name="beam_shutter_permit" UId="101">
+        <BooleanAttribute Name="HasQuotes" UId="102">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="103" />
+  <Token Text=":=" UId="104" />
+  <Blank Num="1" UId="105" />
+  <Access Scope="LiteralConstant" UId="106">
+    <Constant UId="107">
+      <ConstantValue UId="109">TRUE</ConstantValue>
+    </Constant>
+  </Access>
+  <Token Text=";" UId="110" />
+  <NewLine Num="1" UId="111" />
+  <Blank Num="4" UId="112" />
+  <Token Text="END_IF" UId="113" />
+  <Token Text=";" UId="114" />
+  <NewLine Num="1" UId="115" />
+  <Blank Num="4" UId="116" />
+  <Access Scope="LocalVariable" UId="117">
+    <Symbol UId="118">
+      <Component Name="IL_shutter_rst_mem" UId="119" />
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="120" />
+  <Token Text=":=" UId="121" />
+  <Blank Num="1" UId="122" />
+  <Access Scope="GlobalVariable" UId="123">
+    <Symbol UId="124">
+      <Component Name="reset_pb" UId="125">
+        <BooleanAttribute Name="HasQuotes" UId="126">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Token Text=";" UId="127" />
+  <NewLine Num="1" UId="128" />
+  <Blank Num="4" UId="129" />
+  <LineComment Inserted="false" NoClosingBracket="false" UId="130">
+    <Text UId="131"> alarm [critical] ALM_vacuum: Vacuum lost (debounced 2 s), latched until acknowledged.</Text>
+  </LineComment>
+  <NewLine Num="1" UId="132" />
+  <Blank Num="4" UId="133" />
+  <Access Scope="LocalVariable" UId="134">
+    <Symbol UId="135">
+      <Component Name="ALM_vacuum_ton" UId="136" />
+    </Symbol>
+  </Access>
+  <Access Scope="Call" UId="137">
+    <Instruction UId="138">
+      <Token Text="(" UId="139" />
+      <Parameter Name="IN" UId="140">
+        <Blank Num="1" UId="141" />
+        <Token Text=":=" UId="142" />
+        <Blank Num="1" UId="143" />
+        <Token Text="NOT" UId="144" />
+        <Blank Num="1" UId="145" />
+        <Access Scope="GlobalVariable" UId="146">
+          <Symbol UId="147">
+            <Component Name="pressure_ok" UId="148">
+              <BooleanAttribute Name="HasQuotes" UId="149">true</BooleanAttribute>
+            </Component>
+          </Symbol>
+        </Access>
+      </Parameter>
+      <Token Text="," UId="150" />
+      <NewLine Num="1" UId="151" />
+      <Blank Num="20" UId="152" />
+      <Parameter Name="PT" UId="153">
+        <Blank Num="1" UId="154" />
+        <Token Text=":=" UId="155" />
+        <Blank Num="1" UId="156" />
+        <Access Scope="TypedConstant" UId="157">
+          <Constant UId="158">
+            <ConstantValue UId="159">T#2s</ConstantValue>
+          </Constant>
+        </Access>
+      </Parameter>
+      <Token Text=")" UId="160" />
+    </Instruction>
+  </Access>
+  <Token Text=";" UId="161" />
+  <NewLine Num="1" UId="162" />
+  <Blank Num="4" UId="163" />
+  <Token Text="IF" UId="164" />
+  <Blank Num="1" UId="165" />
+  <Access Scope="LocalVariable" UId="166">
+    <Symbol UId="167">
+      <Component Name="ALM_vacuum_ton" UId="168" />
+      <Token Text="." UId="169" />
+      <Component Name="Q" UId="170" />
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="171" />
+  <Token Text="THEN" UId="172" />
+  <NewLine Num="1" UId="173" />
+  <Blank Num="8" UId="174" />
+  <Access Scope="GlobalVariable" UId="175">
+    <Symbol UId="176">
+      <Component Name="vacuum_alarm" UId="177">
+        <BooleanAttribute Name="HasQuotes" UId="178">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="179" />
+  <Token Text=":=" UId="180" />
+  <Blank Num="1" UId="181" />
+  <Access Scope="LiteralConstant" UId="182">
+    <Constant UId="183">
+      <ConstantValue UId="185">TRUE</ConstantValue>
+    </Constant>
+  </Access>
+  <Token Text=";" UId="186" />
+  <NewLine Num="1" UId="187" />
+  <Blank Num="4" UId="188" />
+  <Token Text="END_IF" UId="189" />
+  <Token Text=";" UId="190" />
+  <NewLine Num="1" UId="191" />
+  <Blank Num="4" UId="192" />
+  <Token Text="IF" UId="193" />
+  <Blank Num="1" UId="194" />
+  <Access Scope="GlobalVariable" UId="195">
+    <Symbol UId="196">
+      <Component Name="ack_pb" UId="197">
+        <BooleanAttribute Name="HasQuotes" UId="198">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="199" />
+  <Token Text="AND" UId="200" />
+  <Blank Num="1" UId="201" />
+  <Token Text="NOT" UId="202" />
+  <Blank Num="1" UId="203" />
+  <Access Scope="LocalVariable" UId="204">
+    <Symbol UId="205">
+      <Component Name="ALM_vacuum_ack_mem" UId="206" />
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="207" />
+  <Token Text="AND" UId="208" />
+  <Blank Num="1" UId="209" />
+  <Token Text="NOT" UId="210" />
+  <Blank Num="1" UId="211" />
+  <Access Scope="LocalVariable" UId="212">
+    <Symbol UId="213">
+      <Component Name="ALM_vacuum_ton" UId="214" />
+      <Token Text="." UId="215" />
+      <Component Name="Q" UId="216" />
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="217" />
+  <Token Text="THEN" UId="218" />
+  <NewLine Num="1" UId="219" />
+  <Blank Num="8" UId="220" />
+  <Access Scope="GlobalVariable" UId="221">
+    <Symbol UId="222">
+      <Component Name="vacuum_alarm" UId="223">
+        <BooleanAttribute Name="HasQuotes" UId="224">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="225" />
+  <Token Text=":=" UId="226" />
+  <Blank Num="1" UId="227" />
+  <Access Scope="LiteralConstant" UId="228">
+    <Constant UId="229">
+      <ConstantValue UId="231">FALSE</ConstantValue>
+    </Constant>
+  </Access>
+  <Token Text=";" UId="232" />
+  <NewLine Num="1" UId="233" />
+  <Blank Num="4" UId="234" />
+  <Token Text="END_IF" UId="235" />
+  <Token Text=";" UId="236" />
+  <NewLine Num="1" UId="237" />
+  <Blank Num="4" UId="238" />
+  <Access Scope="LocalVariable" UId="239">
+    <Symbol UId="240">
+      <Component Name="ALM_vacuum_ack_mem" UId="241" />
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="242" />
+  <Token Text=":=" UId="243" />
+  <Blank Num="1" UId="244" />
+  <Access Scope="GlobalVariable" UId="245">
+    <Symbol UId="246">
+      <Component Name="ack_pb" UId="247">
+        <BooleanAttribute Name="HasQuotes" UId="248">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Token Text=";" UId="249" />
+  <NewLine Num="1" UId="250" />
+  <Blank Num="4" UId="251" />
+  <LineComment Inserted="false" NoClosingBracket="false" UId="252">
+    <Text UId="253"> alarm [alarm] ALM_pump_fb: Pump commanded but no running feedback within 5 s.</Text>
+  </LineComment>
+  <NewLine Num="1" UId="254" />
+  <Blank Num="4" UId="255" />
+  <Access Scope="LocalVariable" UId="256">
+    <Symbol UId="257">
+      <Component Name="ALM_pump_fb_ton" UId="258" />
+    </Symbol>
+  </Access>
+  <Access Scope="Call" UId="259">
+    <Instruction UId="260">
+      <Token Text="(" UId="261" />
+      <Parameter Name="IN" UId="262">
+        <Blank Num="1" UId="263" />
+        <Token Text=":=" UId="264" />
+        <Blank Num="1" UId="265" />
+        <Access Scope="GlobalVariable" UId="266">
+          <Symbol UId="267">
+            <Component Name="pump_start_cmd" UId="268">
+              <BooleanAttribute Name="HasQuotes" UId="269">true</BooleanAttribute>
+            </Component>
+          </Symbol>
+        </Access>
+        <Blank Num="1" UId="270" />
+        <Token Text="AND" UId="271" />
+        <Blank Num="1" UId="272" />
+        <Token Text="NOT" UId="273" />
+        <Blank Num="1" UId="274" />
+        <Access Scope="GlobalVariable" UId="275">
+          <Symbol UId="276">
+            <Component Name="pump_running_fb" UId="277">
+              <BooleanAttribute Name="HasQuotes" UId="278">true</BooleanAttribute>
+            </Component>
+          </Symbol>
+        </Access>
+      </Parameter>
+      <Token Text="," UId="279" />
+      <NewLine Num="1" UId="280" />
+      <Blank Num="21" UId="281" />
+      <Parameter Name="PT" UId="282">
+        <Blank Num="1" UId="283" />
+        <Token Text=":=" UId="284" />
+        <Blank Num="1" UId="285" />
+        <Access Scope="TypedConstant" UId="286">
+          <Constant UId="287">
+            <ConstantValue UId="288">T#5s</ConstantValue>
+          </Constant>
+        </Access>
+      </Parameter>
+      <Token Text=")" UId="289" />
+    </Instruction>
+  </Access>
+  <Token Text=";" UId="290" />
+  <NewLine Num="1" UId="291" />
+  <Blank Num="4" UId="292" />
+  <Token Text="IF" UId="293" />
+  <Blank Num="1" UId="294" />
+  <Access Scope="LocalVariable" UId="295">
+    <Symbol UId="296">
+      <Component Name="ALM_pump_fb_ton" UId="297" />
+      <Token Text="." UId="298" />
+      <Component Name="Q" UId="299" />
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="300" />
+  <Token Text="THEN" UId="301" />
+  <NewLine Num="1" UId="302" />
+  <Blank Num="8" UId="303" />
+  <Access Scope="GlobalVariable" UId="304">
+    <Symbol UId="305">
+      <Component Name="pump_fault_alarm" UId="306">
+        <BooleanAttribute Name="HasQuotes" UId="307">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="308" />
+  <Token Text=":=" UId="309" />
+  <Blank Num="1" UId="310" />
+  <Access Scope="LiteralConstant" UId="311">
+    <Constant UId="312">
+      <ConstantValue UId="314">TRUE</ConstantValue>
+    </Constant>
+  </Access>
+  <Token Text=";" UId="315" />
+  <NewLine Num="1" UId="316" />
+  <Blank Num="4" UId="317" />
+  <Token Text="END_IF" UId="318" />
+  <Token Text=";" UId="319" />
+  <NewLine Num="1" UId="320" />
+  <Blank Num="4" UId="321" />
+  <Token Text="IF" UId="322" />
+  <Blank Num="1" UId="323" />
+  <Access Scope="GlobalVariable" UId="324">
+    <Symbol UId="325">
+      <Component Name="ack_pb" UId="326">
+        <BooleanAttribute Name="HasQuotes" UId="327">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="328" />
+  <Token Text="AND" UId="329" />
+  <Blank Num="1" UId="330" />
+  <Token Text="NOT" UId="331" />
+  <Blank Num="1" UId="332" />
+  <Access Scope="LocalVariable" UId="333">
+    <Symbol UId="334">
+      <Component Name="ALM_pump_fb_ack_mem" UId="335" />
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="336" />
+  <Token Text="AND" UId="337" />
+  <Blank Num="1" UId="338" />
+  <Token Text="NOT" UId="339" />
+  <Blank Num="1" UId="340" />
+  <Access Scope="LocalVariable" UId="341">
+    <Symbol UId="342">
+      <Component Name="ALM_pump_fb_ton" UId="343" />
+      <Token Text="." UId="344" />
+      <Component Name="Q" UId="345" />
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="346" />
+  <Token Text="THEN" UId="347" />
+  <NewLine Num="1" UId="348" />
+  <Blank Num="8" UId="349" />
+  <Access Scope="GlobalVariable" UId="350">
+    <Symbol UId="351">
+      <Component Name="pump_fault_alarm" UId="352">
+        <BooleanAttribute Name="HasQuotes" UId="353">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="354" />
+  <Token Text=":=" UId="355" />
+  <Blank Num="1" UId="356" />
+  <Access Scope="LiteralConstant" UId="357">
+    <Constant UId="358">
+      <ConstantValue UId="360">FALSE</ConstantValue>
+    </Constant>
+  </Access>
+  <Token Text=";" UId="361" />
+  <NewLine Num="1" UId="362" />
+  <Blank Num="4" UId="363" />
+  <Token Text="END_IF" UId="364" />
+  <Token Text=";" UId="365" />
+  <NewLine Num="1" UId="366" />
+  <Blank Num="4" UId="367" />
+  <Access Scope="LocalVariable" UId="368">
+    <Symbol UId="369">
+      <Component Name="ALM_pump_fb_ack_mem" UId="370" />
+    </Symbol>
+  </Access>
+  <Blank Num="1" UId="371" />
+  <Token Text=":=" UId="372" />
+  <Blank Num="1" UId="373" />
+  <Access Scope="GlobalVariable" UId="374">
+    <Symbol UId="375">
+      <Component Name="ack_pb" UId="376">
+        <BooleanAttribute Name="HasQuotes" UId="377">true</BooleanAttribute>
+      </Component>
+    </Symbol>
+  </Access>
+  <Token Text=";" UId="378" />
+</StructuredText></NetworkSource>
+          <ProgrammingLanguage>SCL</ProgrammingLanguage>
+        </AttributeList>
+        <ObjectList>
+          <MultilingualText ID="4" CompositionName="Comment">
+            <ObjectList>
+              <MultilingualTextItem ID="5" CompositionName="Items">
+                <AttributeList>
+                  <Culture>en-US</Culture>
+                  <Text />
+                </AttributeList>
+              </MultilingualTextItem>
+            </ObjectList>
+          </MultilingualText>
+          <MultilingualText ID="6" CompositionName="Title">
+            <ObjectList>
+              <MultilingualTextItem ID="7" CompositionName="Items">
+                <AttributeList>
+                  <Culture>en-US</Culture>
+                  <Text />
+                </AttributeList>
+              </MultilingualTextItem>
+            </ObjectList>
+          </MultilingualText>
+        </ObjectList>
+      </SW.Blocks.CompileUnit>
+      <MultilingualText ID="8" CompositionName="Title">
+        <ObjectList>
+          <MultilingualTextItem ID="9" CompositionName="Items">
+            <AttributeList>
+              <Culture>en-US</Culture>
+              <Text />
+            </AttributeList>
+          </MultilingualTextItem>
+        </ObjectList>
+      </MultilingualText>
+    </ObjectList>
+  </SW.Blocks.FB>
+</Document>

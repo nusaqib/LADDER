@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e .[dev]
+      - run: pytest -q
+      - name: Build example for all targets
+        run: ladder build examples/vacuum_interlock.yaml -t all -o out
+      - name: Export IR JSON Schema
+        run: ladder schema -o ir-schema.json
+      - uses: actions/upload-artifact@v4
+        if: matrix.python == '3.13'
+        with:
+          name: generated-artifacts
+          path: |
+            out/
+            ir-schema.json
+
+  # Vendor-free verification: the emitted IEC 61131-3 ST must compile with
+  # matiec (iec2c). No vendor software involved - contributors and CI get the
+  # same signal the lab gets from a real TIA/Studio 5000 import.
+  iec-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e .
+      - name: Cache matiec build
+        id: cache-matiec
+        uses: actions/cache@v4
+        with:
+          path: ~/matiec
+          key: matiec-${{ runner.os }}-v1
+      - name: Build matiec from source
+        if: steps.cache-matiec.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential autoconf automake bison flex
+          git clone --depth 1 https://github.com/nucleron/matiec ~/matiec
+          cd ~/matiec
+          autoreconf -i
+          ./configure
+          make -j2
+      - name: Verify emitted IEC ST with iec2c
+        env:
+          MATIEC_BIN: /home/runner/matiec/iec2c
+          MATIEC_LIB: /home/runner/matiec/lib
+        run: ladder verify examples/vacuum_interlock.yaml -t iec -o out
