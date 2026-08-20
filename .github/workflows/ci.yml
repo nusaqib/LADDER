@@ -45,13 +45,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/matiec
-          key: matiec-${{ runner.os }}-v1
+          key: matiec-${{ runner.os }}-v2
       - name: Build matiec from source
         if: steps.cache-matiec.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq build-essential autoconf automake bison flex
-          git clone --depth 1 https://github.com/nucleron/matiec ~/matiec
+          git clone --depth 1 https://github.com/beremiz/matiec ~/matiec
           cd ~/matiec
           autoreconf -i
           ./configure
