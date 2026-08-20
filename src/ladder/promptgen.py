@@ -39,7 +39,10 @@ and plain IEC 61131-3 artifacts. You never write vendor syntax.
    (`AND OR XOR NOT`, `= <> < <= > >=`, `T#5s` time literals).
 5. Declare every tag you reference, with direction (input/output/memory)
    and a comment. Identifiers: start with a letter, single underscores,
-   max 40 chars, no IEC reserved words.
+   max 40 chars, no IEC reserved words. Structured data: declare UDTs under
+   `types:` and use `array: N` on tags; reference members and elements as
+   `pump.run_cmd` / `temps[3]` (literal indices). UDT/array tags must be
+   direction `memory` - IO stays scalar.
 6. Latching interlocks require a `reset`; latching alarms require an `ack`.
 7. Give every stateful element a unique, meaningful `id` (e.g. `IL_shutter`,
    `ALM_vacuum`), and every element a `description`.

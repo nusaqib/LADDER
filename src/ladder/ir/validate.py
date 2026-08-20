@@ -1,4 +1,4 @@
-"""Semantic validation of a LADDER IR project.
+﻿"""Semantic validation of a LADDER IR project.
 
 Runs after pydantic schema validation and before lowering. Everything here
 is vendor-agnostic; per-vendor lint (reserved words, length limits a vendor
@@ -14,6 +14,8 @@ Checks:
   V07 state machine: initial/goto states exist, codes unique
   V08 periodic programs declare an interval
   V09 pattern elements must be expanded before validation
+  V10 type errors: unknown/cyclic UDTs, bad member paths, out-of-range
+      array indices, complex (UDT/array) tags used as IO or whole-value
 
 lint_project() adds non-fatal warnings on top:
   W01 output tag never written by any program
@@ -33,6 +35,7 @@ from dataclasses import dataclass, field
 
 from ladder.ir import expr as X
 from ladder.ir.model import (
+    SCALAR_TYPES,
     AlarmEl,
     AssignEl,
     Cond,
@@ -43,6 +46,8 @@ from ladder.ir.model import (
     RawStEl,
     ScaleEl,
     StateMachineEl,
+    StructType,
+    Tag,
     TimerEl,
     compile_cond,
 )
@@ -114,16 +119,91 @@ BOOL_TYPES = {"BOOL"}
 STATE_TYPES = {"INT", "DINT"}
 
 
+def resolve_path(types: dict[str, StructType], tag: Tag,
+                 path: tuple[str, ...]) -> tuple[str, str]:
+    """Resolve a reference path against a tag's type.
+
+    Returns (final_type, "") on success or ("", error message) on failure.
+    A whole UDT/array used as a value (path exhausts on a complex type) is
+    an error - expressions and targets must land on a scalar.
+    """
+    _, idx = X.split_segment(path[0])
+    cur = tag.type
+    if idx is not None:
+        if tag.array is None:
+            return "", f"{tag.name!r} is not an array"
+        if not (0 <= idx < tag.array):
+            return "", f"index {idx} out of range for {tag.name!r} (0..{tag.array - 1})"
+    elif tag.array is not None and len(path) > 1:
+        return "", f"array {tag.name!r} needs an index before member access"
+    for seg in path[1:]:
+        name, seg_idx = X.split_segment(seg)
+        if seg_idx is not None:
+            return "", f"member arrays are not supported (segment {seg!r})"
+        udt = types.get(cur)
+        if udt is None:
+            return "", f"{cur!r} has no member {name!r}"
+        member = next((m for m in udt.members if m.name == name), None)
+        if member is None:
+            return "", f"UDT {cur!r} has no member {name!r}"
+        cur = member.type
+    if cur.upper() not in SCALAR_TYPES:
+        if tag.array is not None and idx is None and len(path) == 1:
+            return "", f"array {tag.name!r} used without an index"
+        return "", f"whole UDT {cur!r} cannot be used as a value"
+    if tag.array is not None and idx is None and len(path) == 1:
+        return "", f"array {tag.name!r} used without an index"
+    return cur.upper(), ""
+
+
+def _validate_types(project: Project, res: ValidationResult) -> dict[str, StructType]:
+    types: dict[str, StructType] = {}
+    for t in project.types:
+        w = f"types/{t.name}"
+        _check_ident(t.name, w, res)
+        if t.name in types or t.name.upper() in SCALAR_TYPES:
+            res.add("V02", w, "duplicate or reserved type name")
+        types[t.name] = t
+        member_names = set()
+        for m in t.members:
+            _check_ident(m.name, f"{w}/{m.name}", res)
+            if m.name in member_names:
+                res.add("V02", f"{w}/{m.name}", "duplicate member")
+            member_names.add(m.name)
+    # member types resolve; no cycles
+    for t in project.types:
+        for m in t.members:
+            if m.type.upper() not in SCALAR_TYPES and m.type not in types:
+                res.add("V10", f"types/{t.name}/{m.name}",
+                        f"unknown member type {m.type!r}")
+
+    def has_cycle(name: str, stack: set[str]) -> bool:
+        if name in stack:
+            return True
+        udt = types.get(name)
+        if udt is None:
+            return False
+        return any(has_cycle(m.type, stack | {name}) for m in udt.members)
+
+    for t in project.types:
+        if has_cycle(t.name, set()):
+            res.add("V10", f"types/{t.name}", "recursive UDT nesting")
+            break
+    return types
+
+
 def validate_project(project: Project) -> ValidationResult:
     res = ValidationResult()
+    types = _validate_types(project, res)
 
-    # -- V02 global uniqueness, V01 identifiers
+    # -- V02 global uniqueness, V01 identifiers, V10 tag typing
     seen: dict[str, str] = {}
     for tag in project.tags:
         _check_ident(tag.name, f"tags/{tag.name}", res)
         if tag.name in seen:
             res.add("V02", f"tags/{tag.name}", f"duplicate of {seen[tag.name]}")
         seen[tag.name] = "global tag"
+        _check_tag_type(tag, f"tags/{tag.name}", types, res)
     for prog in project.programs:
         _check_ident(prog.name, f"programs/{prog.name}", res)
         if prog.name in seen:
@@ -131,12 +211,29 @@ def validate_project(project: Project) -> ValidationResult:
         seen[prog.name] = "program"
 
     for prog in project.programs:
-        _validate_program(project, prog, res)
+        _validate_program(project, prog, types, res)
 
     return res
 
 
-def _validate_program(project: Project, prog: Program, res: ValidationResult) -> None:
+def _check_tag_type(tag: Tag, w: str, types: dict[str, StructType],
+                    res: ValidationResult) -> None:
+    from ladder.ir.model import INSTANCE_TYPES
+
+    if tag.type.upper() in INSTANCE_TYPES:
+        return  # opaque system FB instance (adopted programs)
+    if tag.type.upper() not in SCALAR_TYPES and tag.type not in types:
+        res.add("V10", w, f"unknown type {tag.type!r}")
+    if tag.is_complex:
+        if tag.direction != "memory":
+            res.add("V10", w, "UDT/array tags must be direction 'memory' "
+                    "(map IO to scalar tags; structuring IO is engine-phase)")
+        if tag.address:
+            res.add("V10", w, "UDT/array tags cannot carry an address hint")
+
+
+def _validate_program(project: Project, prog: Program,
+                      types: dict[str, StructType], res: ValidationResult) -> None:
     pw = f"programs/{prog.name}"
     globals_ = {t.name: t for t in project.tags}
     locals_ = {t.name: t for t in prog.variables}
@@ -158,6 +255,7 @@ def _validate_program(project: Project, prog: Program, res: ValidationResult) ->
         if tag.direction != "memory":
             res.add("V02", f"{pw}/variables/{tag.name}",
                     "program locals must be direction 'memory'; IO tags are global")
+        _check_tag_type(tag, f"{pw}/variables/{tag.name}", types, res)
     ids_seen: set[str] = set()
     for el in prog.logic:
         el_id = getattr(el, "id", None)
@@ -168,23 +266,40 @@ def _validate_program(project: Project, prog: Program, res: ValidationResult) ->
             ids_seen.add(el_id)
 
     def lookup(name: str):
-        root = name.split(".")[0]
+        try:
+            root = X.split_segment(name.split(".")[0])[0]
+        except X.ExprError:
+            return None
         return locals_.get(root) or globals_.get(root)
+
+    def resolve(name: str, where: str, code: str) -> str | None:
+        """Full typed resolution of a dotted/indexed path; returns the
+        final scalar type or None (an issue was recorded)."""
+        path = tuple(name.split("."))
+        tag = lookup(name)
+        if tag is None:
+            res.add(code, where, f"unknown {'target' if code == 'V04' else 'reference'} {name!r}")
+            return None
+        final, err = resolve_path(types, tag, path)
+        if err:
+            res.add("V10", where, f"{name!r}: {err}")
+            return None
+        return final
 
     def check_read(c: Cond, where: str) -> None:
         for ref in _cond_refs(c, where, res):
-            if lookup(ref.root) is None:
-                res.add("V03", where, f"unknown reference {ref}")
+            # timer-instance members (e.g. T1.Q) are synthesized later; the
+            # IR author only references declared tags, so resolve fully
+            resolve(str(ref), where, "V03")
 
-    def check_write(name: str, where: str, want_bool: bool = False) -> None:
+    def check_write(name: str, where: str, want_bool: bool = False) -> str | None:
         tag = lookup(name)
-        if tag is None:
-            res.add("V04", where, f"unknown target {name!r}")
-            return
-        if tag.direction == "input":
+        if tag is not None and tag.direction == "input":
             res.add("V04", where, f"target {name!r} is an input and cannot be written")
-        if want_bool and tag.type.upper() not in BOOL_TYPES:
-            res.add("V06", where, f"target {name!r} must be BOOL, is {tag.type}")
+        final = resolve(name, where, "V04")
+        if want_bool and final is not None and final not in BOOL_TYPES:
+            res.add("V06", where, f"target {name!r} must be BOOL, is {final}")
+        return final
 
     for el in prog.logic:
         w = f"{pw}/{getattr(el, 'id', None) or el.element}"
@@ -212,30 +327,35 @@ def _validate_program(project: Project, prog: Program, res: ValidationResult) ->
             if el.elapsed:
                 check_write(el.elapsed, w)
         elif isinstance(el, StateMachineEl):
-            _validate_state_machine(el, w, lookup, check_read, check_write, res)
+            _validate_state_machine(el, w, resolve, check_read, check_write, res)
         elif isinstance(el, ScaleEl):
-            src = lookup(el.input)
-            if src is None:
-                res.add("V03", w, f"unknown scale input {el.input!r}")
-            elif src.type.upper() not in ("INT", "DINT", "REAL", "LREAL"):
+            src_type = resolve(el.input, w, "V03")
+            if src_type is not None and src_type not in ("INT", "DINT", "REAL", "LREAL"):
                 res.add("V06", w, f"scale input {el.input!r} must be "
-                        f"INT/DINT/REAL, is {src.type}")
-            check_write(el.output, w)
-            dst = lookup(el.output)
-            if dst is not None and dst.type.upper() not in ("REAL", "LREAL"):
+                        f"INT/DINT/REAL, is {src_type}")
+            dst_type = check_write(el.output, w)
+            if dst_type is not None and dst_type not in ("REAL", "LREAL"):
                 res.add("V06", w, f"scale output {el.output!r} must be "
-                        f"REAL or LREAL, is {dst.type}")
+                        f"REAL or LREAL, is {dst_type}")
         elif isinstance(el, PatternEl):
             res.add("V09", w, f"pattern {el.ref!r} not expanded - load the IR "
                     "via load_project (or call ladder.patterns.expand_project)")
         elif isinstance(el, RawStEl):
             pass  # escape hatch: backends lint lightly
 
+def _lint_root(name: str) -> str:
+    try:
+        return X.split_segment(name.split(".")[0])[0]
+    except X.ExprError:
+        return name.split(".")[0]
+
+
 def lint_project(project: Project) -> list[Issue]:
     """Non-fatal warnings: unused/multiply-written tags, SM reachability."""
     warns: list[Issue] = []
     reads: set[str] = set()
-    writes: dict[str, set[str]] = {}  # tag -> programs writing it
+    writes: dict[str, set[str]] = {}  # full target path -> programs writing it
+    written_roots: set[str] = set()
     opaque = False
 
     def add_reads(c: Cond) -> None:
@@ -245,7 +365,8 @@ def lint_project(project: Project) -> list[Issue]:
             pass  # V03 already reports it
 
     def add_write(name: str, prog: str) -> None:
-        writes.setdefault(name.split(".")[0], set()).add(prog)
+        written_roots.add(_lint_root(name))
+        writes.setdefault(name, set()).add(prog)  # full path: temps[0] != temps[1]
 
     for prog in project.programs:
         for el in prog.logic:
@@ -256,19 +377,19 @@ def lint_project(project: Project) -> list[Issue]:
                 add_reads(el.permissives)
                 add_write(el.output, prog.name)
                 if el.reset:
-                    reads.add(el.reset.signal.split(".")[0])
+                    reads.add(_lint_root(el.reset.signal))
             elif isinstance(el, AlarmEl):
                 add_reads(el.condition)
                 add_write(el.output, prog.name)
                 if el.ack:
-                    reads.add(el.ack.split(".")[0])
+                    reads.add(_lint_root(el.ack))
             elif isinstance(el, TimerEl):
                 add_reads(el.input)
                 for t in (el.done, el.elapsed):
                     if t:
                         add_write(t, prog.name)
             elif isinstance(el, StateMachineEl):
-                reads.add(el.state_tag.split(".")[0])
+                reads.add(_lint_root(el.state_tag))
                 add_write(el.state_tag, prog.name)
                 for st in el.states:
                     for act in st.do:
@@ -278,7 +399,7 @@ def lint_project(project: Project) -> list[Issue]:
                         add_reads(tr.when)
                 _lint_state_machine(el, f"programs/{prog.name}/{el.id}", warns)
             elif isinstance(el, ScaleEl):
-                reads.add(el.input.split(".")[0])
+                reads.add(_lint_root(el.input))
                 add_write(el.output, prog.name)
             elif isinstance(el, RawStEl):
                 opaque = True
@@ -290,7 +411,7 @@ def lint_project(project: Project) -> list[Issue]:
         for el in prog.logic:
             el_id = getattr(el, "id", None) or el.element
             for t in _element_writes(el):
-                writers.setdefault(t.split(".")[0], []).append(el_id)
+                writers.setdefault(t, []).append(el_id)  # full path, not root
         for tag_name, els in writers.items():
             if len(els) > 1:
                 warns.append(Issue("W06", f"programs/{prog.name}/{tag_name}",
@@ -299,7 +420,7 @@ def lint_project(project: Project) -> list[Issue]:
 
     if not opaque:
         for tag in project.tags:
-            if tag.direction == "output" and tag.name not in writes:
+            if tag.direction == "output" and tag.name not in written_roots:
                 warns.append(Issue("W01", f"tags/{tag.name}",
                                    "output is never written by any program"))
             elif tag.direction == "input" and tag.name not in reads:
@@ -339,13 +460,11 @@ def _lint_state_machine(el: StateMachineEl, w: str, warns: list[Issue]) -> None:
                                "unreachable: not initial and no transition targets it"))
 
 
-def _validate_state_machine(el: StateMachineEl, w: str, lookup, check_read,
+def _validate_state_machine(el: StateMachineEl, w: str, resolve, check_read,
                             check_write, res: ValidationResult) -> None:
-    tag = lookup(el.state_tag)
-    if tag is None:
-        res.add("V04", w, f"unknown state_tag {el.state_tag!r}")
-    elif tag.type.upper() not in STATE_TYPES:
-        res.add("V06", w, f"state_tag {el.state_tag!r} must be INT or DINT, is {tag.type}")
+    final = resolve(el.state_tag, w, "V04")
+    if final is not None and final not in STATE_TYPES:
+        res.add("V06", w, f"state_tag {el.state_tag!r} must be INT or DINT, is {final}")
     names = [s.name for s in el.states]
     if len(set(names)) != len(names):
         res.add("V07", w, "duplicate state names")

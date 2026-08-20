@@ -21,7 +21,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ladder.backends.base import Backend, register
-from ladder.backends.common import fmt_initial
+from ladder.backends.common import fmt_initial, iec_type_text
 from ladder.backends.dialects import Iec61131Dialect, RenderContext
 from ladder.ir import expr as X
 from ladder.ir.lower import (
@@ -111,6 +111,21 @@ class IecBackend(Backend):
             out.append(f"(* {_safe_comment(project.description)} *)")
         out.append("")
 
+        if project.types:
+            out.append("TYPE")
+            for t in project.types:
+                out.append(f"    {t.name} :")
+                out.append("        STRUCT")
+                for m in t.members:
+                    init = fmt_initial(m.initial, m.type)
+                    line = f"            {m.name} : {m.type}"  # scalars pre-normalized
+                    if init is not None:
+                        line += f" := {init}"
+                    out.append(line + ";")
+                out.append("        END_STRUCT;")
+            out.append("END_TYPE")
+            out.append("")
+
         for name, lp in lowered.items():
             out.extend(self._pou(project, name, lp, d))
             out.append("")
@@ -124,12 +139,12 @@ class IecBackend(Backend):
         ext = external_globals(project, lp)
         if ext:
             out.append("VAR_EXTERNAL")
-            out.extend(f"    {t.name} : {t.type.upper()};" for t in ext)
+            out.extend(f"    {t.name} : {iec_type_text(t)};" for t in ext)
             out.append("END_VAR")
         locals_ = []
         for t in lp.program.variables:
-            init = fmt_initial(t.initial, t.type)
-            locals_.append(f"    {t.name} : {t.type.upper()}"
+            init = fmt_initial(t.initial, t.type) if t.array is None else None
+            locals_.append(f"    {t.name} : {iec_type_text(t)}"
                            + (f" := {init}" if init is not None else "") + ";")
         for v in lp.synth:
             type_ = d.timer_decl_type(v) if v.kind == "timer" else "BOOL"
@@ -150,8 +165,8 @@ class IecBackend(Backend):
         if project.tags:
             out.append("    VAR_GLOBAL")
             for t in project.tags:
-                init = fmt_initial(t.initial, t.type)
-                out.append(f"        {t.name} : {t.type.upper()}"
+                init = fmt_initial(t.initial, t.type) if t.array is None else None
+                out.append(f"        {t.name} : {iec_type_text(t)}"
                            + (f" := {init}" if init is not None else "") + ";")
             out.append("    END_VAR")
         cyclic = [n for n, lp in lowered.items() if lp.program.execution == "cyclic"]

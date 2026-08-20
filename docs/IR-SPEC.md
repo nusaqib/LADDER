@@ -1,4 +1,4 @@
-# LADDER IR — specification (v0.1)
+# LADDER IR — specification (v0.2)
 
 The IR is a YAML or JSON document validated in three layers:
 
@@ -15,9 +15,10 @@ runtime semantics are defined once in `src/ladder/ir/lower.py` for every vendor.
 ## Document root
 
 ```yaml
-ir_version: "0.1"
+ir_version: "0.2"
 name: ProjectName            # portable identifier
 description: ...             # optional
+types: [...]                 # user-defined types (see Types)
 tags: [...]                  # global variables (see Tags)
 programs: [...]              # at least one (see Programs)
 vendor:                      # OPTIONAL per-backend hints; IR must stand alone
@@ -25,11 +26,27 @@ vendor:                      # OPTIONAL per-backend hints; IR must stand alone
   rockwell: {processor: 1756-L85E, major_rev: 36}
 ```
 
+## Types (UDTs)
+
+```yaml
+types:
+  - name: PumpCtrl
+    comment: Everything one pump needs.
+    members:
+      - {name: run_cmd, type: BOOL}
+      - {name: hours,   type: DINT, initial: 0}
+      - {name: inner,   type: OtherUdt}     # nesting allowed, cycles rejected (V10)
+```
+
+Backends map UDTs to TIA PLC data types, Logix UDTs (BOOL members packed as
+BIT views on hidden SINT hosts), IEC STRUCTs, and TwinCAT DUTs.
+
 ## Tags
 
 ```yaml
 - name: pressure_ok          # portable identifier (V01)
-  type: BOOL                 # BOOL INT DINT REAL LREAL TIME WORD DWORD STRING
+  type: BOOL                 # scalar, or a UDT name from types:
+  array: 8                   # optional -> elements indexed 0..7
   direction: input           # input | output | memory (default memory)
   address: "%I0.0"           # optional vendor hint; real IO mapping is engine-phase
   initial: false             # optional
@@ -38,8 +55,16 @@ vendor:                      # OPTIONAL per-backend hints; IR must stand alone
 ```
 
 Program-local variables use the same shape (direction must be `memory`).
-Type mapping notes: Rockwell has no TIME tag type — it becomes DINT
-milliseconds (commented); WORD/DWORD become INT/DINT there.
+UDT/array tags must also be `memory` (V10) — IO stays scalar; structuring IO
+belongs to the vendor engine. On **Siemens**, complex tags live in a
+generated global DB (`"<Project>_DB".pump.run_cmd`) because TIA PLC tags
+cannot hold structs/arrays; scalars remain PLC tags. Type mapping notes:
+Rockwell has no TIME tag type — it becomes DINT milliseconds (commented);
+WORD/DWORD become INT/DINT there.
+
+References reach into structures with members and literal indices:
+`pump.run_cmd`, `temps[3]`, `axes[2].pos` — resolution, member existence,
+and index range are all validated (V10).
 
 ## Expressions and conditions
 

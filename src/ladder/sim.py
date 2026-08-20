@@ -78,10 +78,35 @@ class _TimerState:
         self.prev_in = in_
 
 
-def _default(tag: Tag) -> Any:
-    if tag.initial is not None:
-        return tag.initial
-    return _DEFAULTS.get(tag.type.upper(), 0)
+def _default(tag: Tag, types: dict | None = None) -> Any:
+    types = types or {}
+    if tag.array is not None:
+        return [_scalar_or_struct(tag.type, None, types) for _ in range(tag.array)]
+    return _scalar_or_struct(tag.type, tag.initial, types)
+
+
+def _scalar_or_struct(type_: str, initial: Any, types: dict) -> Any:
+    t = type_.upper()
+    if t in _DEFAULTS:
+        return initial if initial is not None else _DEFAULTS[t]
+    udt = types.get(type_)
+    if udt is not None:
+        return {m.name: _scalar_or_struct(m.type, m.initial, types)
+                for m in udt.members}
+    return 0  # opaque instance types
+
+
+def _step_into(value: Any, seg: str) -> Any:
+    name, idx = X.split_segment(seg)
+    if isinstance(value, dict):
+        if name not in value:
+            raise SimError(f"no member {name!r}")
+        value = value[name]
+    if idx is not None:
+        if not isinstance(value, list) or not (0 <= idx < len(value)):
+            raise SimError(f"bad index in {seg!r}")
+        value = value[idx]
+    return value
 
 
 @dataclass
@@ -91,6 +116,13 @@ class _Scope:
     globals_: dict[str, Any]
     locals_: dict[str, Any] = field(default_factory=dict)
     timers: dict[str, _TimerState] = field(default_factory=dict)
+
+    def _container(self, root: str) -> dict[str, Any]:
+        if root in self.locals_:
+            return self.locals_
+        if root in self.globals_:
+            return self.globals_
+        raise SimError(f"unknown reference root {root!r}")
 
     def read(self, ref: X.Ref) -> Any:
         head = ref.root
@@ -102,24 +134,46 @@ class _Scope:
             if member == "ET":
                 return t.elapsed
             raise SimError(f"unknown timer member {ref}")
-        if len(ref.path) > 1:
-            raise SimError(f"member access not simulated: {ref}")
-        if head in self.locals_:
-            return self.locals_[head]
-        if head in self.globals_:
-            return self.globals_[head]
-        raise SimError(f"unknown reference {ref}")
+        try:
+            container = self._container(head)
+            value = _step_into({head: container[head]}, ref.path[0])
+            for seg in ref.path[1:]:
+                value = _step_into(value, seg)
+        except SimError as e:
+            raise SimError(f"{ref}: {e}") from None
+        if isinstance(value, (dict, list)):
+            raise SimError(f"{ref}: UDT/array used without member/index")
+        return value
 
     def write(self, ref: X.Ref, value: Any) -> None:
         head = ref.root
-        if len(ref.path) > 1:
-            raise SimError(f"member write not simulated: {ref}")
-        if head in self.locals_:
-            self.locals_[head] = value
-        elif head in self.globals_:
-            self.globals_[head] = value
-        else:
-            raise SimError(f"unknown target {ref}")
+        try:
+            container = self._container(head)
+            base, idx = X.split_segment(ref.path[0])
+            if len(ref.path) == 1 and idx is None:
+                if isinstance(container[base], (dict, list)):
+                    raise SimError("cannot assign a whole UDT/array")
+                container[base] = value
+                return
+            # navigate to the parent of the final scalar
+            parent: Any = container[base]
+            steps: list = ([idx] if idx is not None else [])
+            for seg in ref.path[1:]:
+                name, seg_idx = X.split_segment(seg)
+                steps.append(name)
+                if seg_idx is not None:
+                    steps.append(seg_idx)
+            for step in steps[:-1]:
+                parent = parent[step]
+            if isinstance(parent, dict) and steps[-1] not in parent:
+                raise SimError(f"no member {steps[-1]!r}")
+            if not isinstance(parent, (dict, list)):
+                raise SimError("not a UDT/array")
+            parent[steps[-1]] = value
+        except (KeyError, IndexError, TypeError) as e:
+            raise SimError(f"{ref}: {e}") from None
+        except SimError as e:
+            raise SimError(f"{ref}: {e}") from None
 
 
 def _eval(e: X.Expr, scope: _Scope) -> Any:
@@ -158,14 +212,16 @@ class Simulator:
         self.project = project
         self.on_raw = on_raw
         self.lowered: dict[str, LoweredProgram] = lower_project(project)
-        self.globals: dict[str, Any] = {t.name: _default(t) for t in project.tags}
+        self._types = {t.name: t for t in project.types}
+        self.globals: dict[str, Any] = {t.name: _default(t, self._types)
+                                        for t in project.tags}
         self.time_ms = 0
         self.scan_count = 0
         self._scopes: dict[str, _Scope] = {}
         for name, lp in self.lowered.items():
             scope = _Scope(self.globals)
             for t in lp.program.variables:
-                scope.locals_[t.name] = _default(t)
+                scope.locals_[t.name] = _default(t, self._types)
             for v in lp.synth:
                 if v.kind == "timer":
                     scope.timers[v.name] = _TimerState(v.timer_kind)
@@ -176,17 +232,21 @@ class Simulator:
     # ------------------------------------------------------------- controls
 
     def set(self, tag: str, value: Any) -> None:
-        if tag not in self.globals:
-            raise SimError(f"unknown global tag {tag!r}")
-        self.globals[tag] = value
+        """Write a global tag; dotted/indexed paths reach members
+        (e.g. set('pump1.run_cmd', True), set('temps[3]', 42.0))."""
+        path = tuple(tag.split("."))
+        root = X.split_segment(path[0])[0]
+        if root not in self.globals:
+            raise SimError(f"unknown global tag {root!r}")
+        _Scope(self.globals).write(X.Ref(path), value)
 
     def get(self, tag: str) -> Any:
-        if tag in self.globals:
-            return self.globals[tag]
+        path = tuple(tag.split("."))
+        root = X.split_segment(path[0])[0]
         for scope in self._scopes.values():
-            if tag in scope.locals_:
-                return scope.locals_[tag]
-        raise SimError(f"unknown tag {tag!r}")
+            if root in scope.locals_ or root in scope.timers:
+                return scope.read(X.Ref(path))
+        return _Scope(self.globals).read(X.Ref(path))
 
     def pulse(self, tag: str, dt_ms: int = 10) -> None:
         """One scan with the tag TRUE, one with it FALSE (a button press)."""

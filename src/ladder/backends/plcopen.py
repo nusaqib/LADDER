@@ -21,11 +21,19 @@ from ladder.ir.model import Project, Tag
 _SIMPLE_TYPES = {"BOOL", "INT", "DINT", "REAL", "LREAL", "TIME", "WORD", "DWORD", "STRING"}
 
 
-def _type_xml(type_: str) -> str:
+def _base_type_xml(type_: str) -> str:
     t = type_.upper()
     if t in _SIMPLE_TYPES:
-        return f"<type><{t}/></type>"
-    return f"<type><derived name={quoteattr(type_)}/></type>"
+        return f"<{t}/>"
+    return f"<derived name={quoteattr(type_)}/>"
+
+
+def _type_xml(type_: str, array: int | None = None) -> str:
+    base = _base_type_xml(type_)
+    if array is not None:
+        return (f'<type><array><dimension lower="0" upper="{array - 1}"/>'
+                f"<baseType>{base}</baseType></array></type>")
+    return f"<type>{base}</type>"
 
 
 def _iso_duration(ms: int) -> str:
@@ -34,9 +42,10 @@ def _iso_duration(ms: int) -> str:
 
 
 def _variable_xml(name: str, type_: str, initial: str | None,
-                  comment: str | None, indent: str) -> list[str]:
+                  comment: str | None, indent: str,
+                  array: int | None = None) -> list[str]:
     out = [f"{indent}<variable name={quoteattr(name)}>"]
-    out.append(f"{indent}  {_type_xml(type_)}")
+    out.append(f"{indent}  {_type_xml(type_, array)}")
     if initial is not None:
         out.append(f"{indent}  <initialValue><simpleValue value={quoteattr(initial)}/></initialValue>")
     if comment:
@@ -49,7 +58,8 @@ def _variable_xml(name: str, type_: str, initial: str | None,
 def _tag_variable_xml(t: Tag, indent: str) -> list[str]:
     from ladder.backends.common import fmt_initial
 
-    return _variable_xml(t.name, t.type, fmt_initial(t.initial, t.type), t.comment, indent)
+    init = fmt_initial(t.initial, t.type) if t.array is None else None
+    return _variable_xml(t.name, t.type, init, t.comment, indent, array=t.array)
 
 
 @register
@@ -83,7 +93,22 @@ class PlcopenBackend(Backend):
                  "</coordinateInfo>")
         x.append("  </contentHeader>")
         x.append("  <types>")
-        x.append("    <dataTypes/>")
+        if project.types:
+            x.append("    <dataTypes>")
+            for t in project.types:
+                x.append(f"      <dataType name={quoteattr(t.name)}>")
+                x.append("        <baseType><struct>")
+                for m in t.members:
+                    from ladder.backends.common import fmt_initial
+
+                    x.extend(_variable_xml(m.name, m.type,
+                                           fmt_initial(m.initial, m.type),
+                                           m.comment, "          "))
+                x.append("        </struct></baseType>")
+                x.append("      </dataType>")
+            x.append("    </dataTypes>")
+        else:
+            x.append("    <dataTypes/>")
         x.append("    <pous>")
         for name, lp in lowered.items():
             x.extend(self._pou_xml(name, lp, d))

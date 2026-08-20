@@ -21,7 +21,11 @@ Grammar (lowest to highest precedence):
     mul_expr  := unary     ( ( * | / | MOD ) unary )*
     unary     := ( NOT | - ) unary | primary
     primary   := literal | reference | '(' or_expr ')'
-    reference := IDENT ( '.' IDENT )*        e.g. motor.running, T1.Q
+    reference := SEGMENT ( '.' SEGMENT )*    e.g. motor.running, T1.Q
+    SEGMENT   := IDENT ( '[' INT ']' )?      e.g. temps[3], axes[2].pos
+
+Array indices are literal integers (v0.2); a segment keeps its index in
+the path string ('temps[3]') - use split_segment() to take it apart.
 """
 
 from __future__ import annotations
@@ -41,15 +45,27 @@ class Lit:
     kind: str  # 'bool' | 'int' | 'real' | 'time'
 
 
+_SEGMENT_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d+)\])?$")
+
+
+def split_segment(seg: str) -> tuple[str, Union[int, None]]:
+    """'temps[3]' -> ('temps', 3); 'motor' -> ('motor', None)."""
+    m = _SEGMENT_RE.match(seg)
+    if not m:
+        raise ExprError(f"invalid reference segment {seg!r}")
+    return m.group(1), int(m.group(2)) if m.group(2) is not None else None
+
+
 @dataclass(frozen=True)
 class Ref:
-    """Reference to a tag or a member path, e.g. ('motor', 'running')."""
+    """Reference to a tag or a member path, e.g. ('motor', 'running').
+    Segments may carry a literal array index: ('temps[3]',)."""
 
     path: tuple[str, ...]
 
     @property
     def root(self) -> str:
-        return self.path[0]
+        return split_segment(self.path[0])[0]
 
     def __str__(self) -> str:
         return ".".join(self.path)
@@ -96,7 +112,7 @@ _TOKEN_RE = re.compile(
     \s*(?:
         (?P<time>(?:TIME|T)\#[0-9][0-9a-zA-Z_.]*)
       | (?P<num>\d+\.\d+|\d+)
-      | (?P<ident>[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)
+      | (?P<ident>[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?)*)
       | (?P<op><>|<=|>=|[=<>+\-*/()])
     )
     """,

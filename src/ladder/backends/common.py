@@ -24,15 +24,36 @@ def fmt_initial(value, type_: str) -> str | None:
     return str(value)
 
 
+def iec_type_text(tag: Tag) -> str:
+    """IEC type text for a tag, including arrays: 'ARRAY[0..7] OF REAL'."""
+    base = tag.type
+    if tag.array is not None:
+        return f"ARRAY[0..{tag.array - 1}] OF {base}"
+    return base
+
+
 def iec_var_line(tag: Tag, indent: str = "    ") -> str:
-    init = fmt_initial(tag.initial, tag.type)
-    line = f"{indent}{tag.name} : {tag.type}"
+    init = fmt_initial(tag.initial, tag.type) if tag.array is None else None
+    line = f"{indent}{tag.name} : {iec_type_text(tag)}"
     if init is not None:
         line += f" := {init}"
     line += ";"
     if tag.comment:
         line += f"  // {tag.comment}"
     return line
+
+
+def iec_struct_lines(struct, indent: str = "    ") -> list[str]:
+    """TYPE ... : STRUCT body lines for a StructType (61131 syntax)."""
+    lines = [f"TYPE {struct.name} :", f"{indent}STRUCT"]
+    for m in struct.members:
+        init = fmt_initial(m.initial, m.type)
+        line = f"{indent}{indent}{m.name} : {m.type}"
+        if init is not None:
+            line += f" := {init}"
+        lines.append(line + ";")
+    lines += [f"{indent}END_STRUCT;", "END_TYPE"]
+    return lines
 
 
 def synth_var_line(v: SynthVar, timer_type: str, indent: str = "    ") -> str:

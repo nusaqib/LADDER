@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ladder.ir import expr as X
 
-IR_VERSION = "0.1"
+IR_VERSION = "0.2"
 
 # ------------------------------------------------------------- conditions
 #
@@ -65,7 +65,36 @@ def compile_cond(c: Cond) -> X.Expr:
 #: Neutral scalar types every backend maps natively.
 SCALAR_TYPES = {"BOOL", "INT", "DINT", "REAL", "LREAL", "TIME", "WORD", "DWORD", "STRING"}
 
+#: Opaque system FB instance types (appear in adopted programs' locals).
+INSTANCE_TYPES = {"TON", "TOF", "TP", "TON_TIME", "TOF_TIME", "TP_TIME",
+                  "R_TRIG", "F_TRIG", "CTU", "CTD", "FBD_TIMER", "IEC_TIMER"}
+
 Direction = Literal["input", "output", "memory"]
+
+
+class StructMember(BaseModel):
+    """One member of a user-defined struct (scalar or another struct)."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    type: str = "BOOL"
+    initial: Optional[Any] = None
+    comment: Optional[str] = None
+
+    @field_validator("type")
+    @classmethod
+    def _norm_type(cls, v: str) -> str:
+        return v.upper() if v.upper() in SCALAR_TYPES else v
+
+
+class StructType(BaseModel):
+    """User-defined data type (UDT). Backends map it to a TIA PLC data
+    type, a Logix UDT, an IEC STRUCT, or a TwinCAT DUT."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    members: list[StructMember] = Field(min_length=1)
+    comment: Optional[str] = None
 
 
 class Tag(BaseModel):
@@ -75,6 +104,9 @@ class Tag(BaseModel):
 
     name: str
     type: str = "BOOL"
+    array: Optional[int] = Field(
+        default=None, ge=1,
+        description="Array length N -> elements indexed 0..N-1.")
     direction: Direction = "memory"
     address: Optional[str] = Field(
         default=None,
@@ -89,6 +121,11 @@ class Tag(BaseModel):
     @classmethod
     def _norm_type(cls, v: str) -> str:
         return v.upper() if v.upper() in SCALAR_TYPES else v
+
+    @property
+    def is_complex(self) -> bool:
+        """UDT-typed or array tags (need a DB on Siemens, a UDT on Logix)."""
+        return self.array is not None or self.type.upper() not in SCALAR_TYPES
 
 
 # --------------------------------------------------------- logic elements
@@ -294,6 +331,7 @@ class Project(BaseModel):
     ir_version: str = IR_VERSION
     name: str
     description: Optional[str] = None
+    types: list[StructType] = Field(default_factory=list)
     tags: list[Tag] = Field(default_factory=list)
     programs: list[Program] = Field(min_length=1)
     vendor: dict[str, dict[str, Any]] = Field(

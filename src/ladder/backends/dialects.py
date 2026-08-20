@@ -71,7 +71,7 @@ class STDialect:
 
     def fmt_ref(self, ref: X.Ref, ctx: RenderContext) -> str:
         head, *rest = ref.path
-        is_local = head in ctx.local_names
+        is_local = X.split_segment(head)[0] in ctx.local_names
         # member access on a timer instance: map neutral Q/ET
         if rest and is_local:
             rest = [self.timer_members.get(m, m) for m in rest]
@@ -191,15 +191,25 @@ class Iec61131Dialect(STDialect):
 
 
 class SiemensSclDialect(STDialect):
-    """Siemens SCL (TIA Portal, S7-1500). Locals are #name, globals "name"."""
+    """Siemens SCL (TIA Portal, S7-1500). Locals are #name; scalar globals
+    are PLC tags ("name"); complex globals (UDT/array) live in a global DB
+    and render as "<db_name>".name[...]."""
 
     name = "siemens-scl"
+
+    def __init__(self, db_name: str | None = None,
+                 db_tags: set[str] | None = None):
+        self.db_name = db_name
+        self.db_tags = db_tags or set()
 
     def fmt_local(self, name: str) -> str:
         return f"#{name}"
 
     def fmt_global(self, name: str) -> str:
-        return f'"{name}"'
+        base, idx = X.split_segment(name)
+        if base in self.db_tags:
+            return f'"{self.db_name}".{name}'
+        return f'"{base}"' + (f"[{idx}]" if idx is not None else "")
 
 
 class RockwellStDialect(STDialect):

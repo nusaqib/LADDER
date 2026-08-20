@@ -1,0 +1,75 @@
+# LADDER IR example - IR v0.2 features: user-defined types (UDTs) and arrays.
+# On Siemens these land in a global DB ("Chiller_DB"); on Rockwell they become
+# a UDT + dimensioned tags; on IEC/TwinCAT a STRUCT/DUT and ARRAY [..].
+
+ir_version: "0.2"
+name: Chiller
+description: Chilled-water skid with a pump control struct and a temperature array.
+
+types:
+  - name: PumpCtrl
+    comment: Everything one pump needs.
+    members:
+      - {name: run_cmd, type: BOOL, comment: Run command to the starter}
+      - {name: fault,   type: BOOL, comment: Trip flag (latched by alarm logic)}
+      - {name: hours,   type: DINT, comment: Runtime hours (engine-phase HMI)}
+
+tags:
+  # raw analog inputs (scalars - IO stays flat; structure is memory-side)
+  - {name: temp0_raw, type: INT,  direction: input,  comment: Supply RTD counts}
+  - {name: temp1_raw, type: INT,  direction: input,  comment: Return RTD counts}
+  - {name: start_pb,  type: BOOL, direction: input,  comment: Pump start pushbutton}
+  - {name: ack_pb,    type: BOOL, direction: input,  comment: Alarm acknowledge}
+  # structured memory
+  - {name: temps, type: REAL, array: 4, comment: Scaled temperatures degC}
+  - {name: pump,  type: PumpCtrl,       comment: Pump 1 control data}
+  # outputs
+  - {name: pump_run_out, type: BOOL, direction: output, comment: Starter coil}
+  - {name: hot_alarm,    type: BOOL, direction: output, comment: Over-temperature}
+
+programs:
+  - name: Chiller
+    logic:
+      - element: scale
+        id: SC_t0
+        input: temp0_raw
+        output: temps[0]
+        raw_max: 27648
+        eu_max: 100.0
+
+      - element: scale
+        id: SC_t1
+        input: temp1_raw
+        output: temps[1]
+        raw_max: 27648
+        eu_max: 100.0
+
+      - element: alarm
+        id: ALM_hot
+        description: Either temperature over 60 degC for 1 s.
+        condition: temps[0] >= 60.0 OR temps[1] >= 60.0
+        on_delay: T#1s
+        latching: true
+        ack: ack_pb
+        output: hot_alarm
+        severity: alarm
+
+      - element: assign
+        target: pump.fault
+        value: hot_alarm
+        description: Over-temperature trips the pump.
+
+      - element: assign
+        target: pump.run_cmd
+        value: (start_pb OR pump.run_cmd) AND NOT pump.fault
+        description: Seal-in starter on the struct member.
+
+      - element: assign
+        target: pump_run_out
+        value: pump.run_cmd
+        description: Struct member drives the physical output.
+
+vendor:
+  siemens:
+    tia_version: "21.0"
+    cpu: "OrderNumber:6ES7 512-1SK01-0AB0/V2.9"

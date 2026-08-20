@@ -40,6 +40,14 @@ def _cdata(text: str) -> str:
     return "<![CDATA[" + text.replace("]]>", "]]]]><![CDATA[>") + "]]>"
 
 
+def _radix(dtype: str) -> str | None:
+    if dtype in ("REAL", "LREAL"):
+        return "Float"
+    if dtype in ("BOOL", "SINT", "INT", "DINT", "BIT"):
+        return "Decimal"
+    return None  # UDTs / STRING: no radix attribute
+
+
 @register
 class RockwellBackend(Backend):
     name = "rockwell"
@@ -58,9 +66,13 @@ class RockwellBackend(Backend):
 
     def _tag_xml(self, t: Tag, indent: str) -> list[str]:
         dtype = _TYPE_MAP.get(t.type.upper(), t.type)
-        out = [f'{indent}<Tag Name={quoteattr(t.name)} TagType="Base" '
-               f'DataType="{dtype}" Radix="Decimal" Constant="false" '
-               f'ExternalAccess="Read/Write">']
+        radix = _radix(dtype)
+        attrs = f'{indent}<Tag Name={quoteattr(t.name)} TagType="Base" DataType="{dtype}"'
+        if t.array is not None:
+            attrs += f' Dimensions="{t.array}"'
+        if radix and t.type.upper() in _TYPE_MAP:
+            attrs += f' Radix="{radix}"'
+        out = [attrs + ' Constant="false" ExternalAccess="Read/Write">']
         comment = t.comment or ""
         if t.type.upper() == "TIME":
             comment = (comment + " " if comment else "") + "[TIME as DINT ms]"
@@ -100,7 +112,7 @@ class RockwellBackend(Backend):
                  f'SFCLastScan="DontScan" MatchProjectToController="false">')
         if project.description:
             x.append(f"    <Description>{_cdata(project.description)}</Description>")
-        x.append("    <DataTypes/>")
+        x.extend(self._datatypes_xml(project))
 
         # controller (global) tags
         x.append("    <Tags>")
@@ -120,6 +132,44 @@ class RockwellBackend(Backend):
         x.append("  </Controller>")
         x.append("</RSLogix5000Content>")
         return "\n".join(x) + "\n"
+
+    def _datatypes_xml(self, project: Project) -> list[str]:
+        """User UDTs. Logix packs BOOL members as BIT views onto hidden
+        SINT host members (8 bits per host)."""
+        if not project.types:
+            return ["    <DataTypes/>"]
+        x = ["    <DataTypes>"]
+        for t in project.types:
+            x.append(f'      <DataType Name={quoteattr(t.name)} '
+                     f'Family="NoFamily" Class="User">')
+            x.append("        <Members>")
+            host, bit = None, 8
+            host_n = 0
+            for m in t.members:
+                dtype = _TYPE_MAP.get(m.type.upper(), m.type)
+                if dtype == "BOOL":
+                    if bit == 8:  # open a fresh hidden host
+                        host = f"ZZZZZZZZZZ{t.name}{host_n}"
+                        host_n += 1
+                        bit = 0
+                        x.append(f'          <Member Name="{host}" DataType="SINT" '
+                                 f'Dimension="0" Radix="Decimal" Hidden="true" '
+                                 f'ExternalAccess="Read/Write"/>')
+                    x.append(f'          <Member Name={quoteattr(m.name)} '
+                             f'DataType="BIT" Dimension="0" Radix="Decimal" '
+                             f'Hidden="false" Target="{host}" BitNumber="{bit}" '
+                             f'ExternalAccess="Read/Write"/>')
+                    bit += 1
+                else:
+                    radix = _radix(dtype)
+                    radix_attr = f' Radix="{radix}"' if radix else ""
+                    x.append(f'          <Member Name={quoteattr(m.name)} '
+                             f'DataType="{dtype}" Dimension="0"{radix_attr} '
+                             f'Hidden="false" ExternalAccess="Read/Write"/>')
+            x.append("        </Members>")
+            x.append("      </DataType>")
+        x.append("    </DataTypes>")
+        return x
 
     def _program_xml(self, name: str, lp: LoweredProgram,
                      d: RockwellStDialect) -> list[str]:

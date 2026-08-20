@@ -47,6 +47,8 @@ class ModelError(ValueError):
 
 
 def _var(path: tuple[str, ...]) -> str:
+    if any("[" in seg for seg in path):
+        raise ModelError("array indexing is not model-checkable yet")
     return "_".join(path)
 
 
@@ -167,6 +169,27 @@ def _exec(s: Stmt, ctx: _Ctx) -> None:
 # ------------------------------------------------------------ module emit
 
 
+def _all_refs(stmts: list[Stmt]) -> list[X.Ref]:
+    out: list[X.Ref] = []
+    for s in stmts:
+        if isinstance(s, SAssign):
+            out.append(s.target)
+            out.extend(X.refs(s.value))
+        elif isinstance(s, STimerCall):
+            out.extend(X.refs(s.input))
+        elif isinstance(s, SIf):
+            out.extend(X.refs(s.cond))
+            for c, b in s.elifs:
+                out.extend(X.refs(c))
+                out.extend(_all_refs(b))
+            out.extend(_all_refs([*s.then, *s.orelse]))
+        elif isinstance(s, SCase):
+            out.append(s.selector)
+            for _, _, body in s.cases:
+                out.extend(_all_refs(body))
+    return out
+
+
 def _written_vars(stmts: list[Stmt]) -> set[str]:
     out: set[str] = set()
     for s in stmts:
@@ -236,6 +259,9 @@ def _int_domain(name: str, stmts: list[Stmt], initial: int) -> str:
 
 def emit_smv(project: Project, lp: LoweredProgram) -> str:
     prog = lp.program
+    complex_roots = {t.name for t in (*project.tags, *prog.variables) if t.is_complex}
+    if complex_roots & {r.root for r in _all_refs(lp.statements)}:
+        raise ModelError("UDT/array tags are not model-checkable yet")
     tag_types = {t.name: t.type.upper() for t in project.tags}
     tag_types.update({t.name: t.type.upper() for t in prog.variables})
     initials = {t.name: t.initial for t in (*project.tags, *prog.variables)}
