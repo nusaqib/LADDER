@@ -206,6 +206,19 @@ class StateMachineEl(BaseModel):
     description: Optional[str] = None
 
 
+class PatternEl(BaseModel):
+    """Invocation of a library pattern - expanded into real elements before
+    validation (see ladder.patterns.expand_project). This is the intended
+    LLM fast path: pick a pattern, fill in parameters."""
+
+    model_config = ConfigDict(extra="forbid")
+    element: Literal["pattern"]
+    id: str
+    ref: str = Field(description="Pattern name in the library, e.g. 'motor_starter'.")
+    params: dict[str, Any] = Field(default_factory=dict)
+    description: Optional[str] = None
+
+
 class RawStEl(BaseModel):
     """Escape hatch: neutral Structured Text passed through verbatim.
 
@@ -221,7 +234,7 @@ class RawStEl(BaseModel):
 
 
 LogicElement = Annotated[
-    Union[AssignEl, InterlockEl, AlarmEl, TimerEl, StateMachineEl, RawStEl],
+    Union[AssignEl, InterlockEl, AlarmEl, TimerEl, StateMachineEl, PatternEl, RawStEl],
     Field(discriminator="element"),
 ]
 

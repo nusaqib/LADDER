@@ -137,6 +137,25 @@ condition has gone.
 
 Lowered to a CASE on `state_tag` with an IF/ELSIF transition chain.
 
+### pattern — library invocation (the LLM fast path)
+
+```yaml
+- element: pattern
+  id: pump_motor
+  ref: motor_starter          # library name (see src/ladder/patterns/library.py)
+  params:
+    start: start_pb
+    stop_ok: stop_ok          # fail-safe: TRUE = healthy
+    fault_ok: motor_fault_ok
+    run_output: pump_run
+```
+
+Expanded into real elements before validation (`load_project` does this by
+default), so pattern output is checked, lowered, and simulated exactly like
+hand-written IR. Patterns never invent global tags — declare those yourself.
+Built-ins so far: `motor_starter` (seal-in), `valve_with_feedback`
+(position mismatch supervision). Unexpanded patterns fail validation (V09).
+
 ### st — escape hatch
 
 ```yaml
@@ -180,3 +199,4 @@ identical state on every vendor.
 | V06 | wrong type (interlock/alarm outputs BOOL; state_tag INT/DINT) |
 | V07 | state machine: unknown initial/goto, duplicate names/codes |
 | V08 | periodic program without a valid interval |
+| V09 | pattern element not expanded before validation |

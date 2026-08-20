@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "LADDER - LLM-Assisted Design & Deployment of Engineering Routines. Vendor-agnostic PLC program generation: high-level IR -> vendor backends (Siemens TIA, Rockwell Studio 5000, PLCopen XML, Beckhoff TwinCAT)."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "BSD-3-Clause" }
+license = { text = "BSD-3-Clause-LBNL" }
 authors = [{ name = "Nusaqib", email = "nusaqib@lbl.gov" }]
 dependencies = [
     "pydantic>=2.6",

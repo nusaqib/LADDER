@@ -13,6 +13,7 @@ Checks:
   V06 boolean-element outputs are BOOL; state_tag is INT/DINT
   V07 state machine: initial/goto states exist, codes unique
   V08 periodic programs declare an interval
+  V09 pattern elements must be expanded before validation
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from ladder.ir.model import (
     AssignEl,
     Cond,
     InterlockEl,
+    PatternEl,
     Program,
     Project,
     RawStEl,
@@ -200,6 +202,9 @@ def _validate_program(project: Project, prog: Program, res: ValidationResult) ->
                 check_write(el.elapsed, w)
         elif isinstance(el, StateMachineEl):
             _validate_state_machine(el, w, lookup, check_read, check_write, res)
+        elif isinstance(el, PatternEl):
+            res.add("V09", w, f"pattern {el.ref!r} not expanded - load the IR "
+                    "via load_project (or call ladder.patterns.expand_project)")
         elif isinstance(el, RawStEl):
             pass  # escape hatch: backends lint lightly
 

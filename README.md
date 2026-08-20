@@ -92,6 +92,8 @@ structure:
 | `ladder verify` + vendor-free CI (matiec checks emitted IEC ST) | ✅ |
 | **Live TIA build: portal → project → CPU → tags → SCL → compile** | ✅ **0 errors on V19** (V21 SCL import needs a STEP 7 license — see AGENTS.md) |
 | Reverse adoption: `ladder adopt siemens` (Export-TiaToSpec → IR) | ✅ round-trip proven: IR → SCL → TIA → SimaticML → IR |
+| Simulator (`ladder.sim`): scan-based interpreter, real timer semantics | ✅ scenario tests pin interlock/alarm/state-machine behavior |
+| Pattern invocation (`element: pattern` → expansion before validation) | ✅ `motor_starter`, `valve_with_feedback`; see [examples/pump_skid.yaml](examples/pump_skid.yaml) |
 | Studio 5000 L5X import validation | ⬜ manual: open `out\rockwell\*.L5X` in v36 (SDK 2.x for automation) |
 | Vendor engines (structure adoption from reference programs) | ⬜ next — see [docs/ROADMAP.md](docs/ROADMAP.md) |
 | Pattern library from reference programs | ⬜ seeded |

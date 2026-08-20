@@ -1,0 +1,46 @@
+# LADDER IR example - pattern invocation (the LLM fast path):
+# pick a library pattern, fill in parameters; expansion produces real,
+# validated, simulatable elements. Fail-safe sense: *_ok = TRUE is healthy.
+
+ir_version: "0.1"
+name: PumpSkid
+description: Pump skid with seal-in starter and supervised inlet valve, built from patterns.
+
+tags:
+  - {name: start_pb,        type: BOOL, direction: input,  comment: Pump start pushbutton}
+  - {name: stop_ok,         type: BOOL, direction: input,  comment: Stop chain healthy (fail-safe)}
+  - {name: motor_fault_ok,  type: BOOL, direction: input,  comment: Motor protection healthy}
+  - {name: valve_open_fb,   type: BOOL, direction: input,  comment: Inlet valve open limit}
+  - {name: valve_closed_fb, type: BOOL, direction: input,  comment: Inlet valve closed limit}
+  - {name: ack_pb,          type: BOOL, direction: input,  comment: Alarm acknowledge}
+  - {name: pump_run,        type: BOOL, direction: output, comment: Pump run command}
+  - {name: valve_open_cmd,  type: BOOL, direction: output, comment: Inlet valve open command}
+  - {name: valve_alarm,     type: BOOL, direction: output, comment: Valve feedback mismatch alarm}
+
+programs:
+  - name: Skid
+    logic:
+      - element: pattern
+        id: pump_motor
+        ref: motor_starter
+        params:
+          start: start_pb
+          stop_ok: stop_ok
+          fault_ok: motor_fault_ok
+          run_output: pump_run
+
+      - element: assign
+        target: valve_open_cmd
+        value: pump_run
+        description: Inlet valve follows the pump.
+
+      - element: pattern
+        id: inlet_valve
+        ref: valve_with_feedback
+        params:
+          command: valve_open_cmd
+          open_fb: valve_open_fb
+          closed_fb: valve_closed_fb
+          alarm_output: valve_alarm
+          travel_time: T#3s
+          ack: ack_pb
