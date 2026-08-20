@@ -1,0 +1,30 @@
+# Reference solution - task01 conveyor jam (CI-verified against scenarios.yaml)
+ir_version: "0.1"
+name: ConveyorJam
+description: Seal-in conveyor starter with 3 s jam detection.
+
+tags:
+  - {name: start_pb,     type: BOOL, direction: input,  comment: Start pushbutton}
+  - {name: stop_ok,      type: BOOL, direction: input,  comment: Stop chain healthy}
+  - {name: motion_ok,    type: BOOL, direction: input,  comment: Belt motion detected}
+  - {name: ack_pb,       type: BOOL, direction: input,  comment: Alarm acknowledge}
+  - {name: conveyor_run, type: BOOL, direction: output, comment: Motor run command}
+  - {name: jam_alarm,    type: BOOL, direction: output, comment: Latched jam alarm}
+
+programs:
+  - name: Conveyor
+    logic:
+      - element: alarm
+        id: ALM_jam
+        description: Commanded but no motion for 3 s.
+        condition: conveyor_run AND NOT motion_ok
+        on_delay: T#3s
+        latching: true
+        ack: ack_pb
+        output: jam_alarm
+        severity: alarm
+
+      - element: assign
+        target: conveyor_run
+        value: (start_pb OR conveyor_run) AND stop_ok AND NOT jam_alarm
+        description: Seal-in starter; drops on stop chain or jam.

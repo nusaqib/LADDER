@@ -1,0 +1,46 @@
+# Acceptance scenarios - task01 conveyor jam
+scenarios:
+  - name: seal_in_start
+    steps:
+      - set: {stop_ok: true, motion_ok: true}
+      - scan: {}
+      - expect: {conveyor_run: false}
+      - pulse: start_pb
+      - expect: {conveyor_run: true}          # sealed in after button release
+
+  - name: stop_chain_drops_motor_immediately
+    steps:
+      - set: {stop_ok: true, motion_ok: true}
+      - scan: {}
+      - pulse: start_pb
+      - set: {stop_ok: false}
+      - scan: {}
+      - expect: {conveyor_run: false}
+
+  - name: jam_after_3s_no_motion
+    steps:
+      - set: {stop_ok: true, motion_ok: true}
+      - scan: {}
+      - pulse: start_pb
+      - set: {motion_ok: false}
+      - run: {ms: 2800, dt_ms: 100}
+      - expect: {jam_alarm: false, conveyor_run: true}   # still inside delay
+      - run: {ms: 400, dt_ms: 100}
+      - expect: {jam_alarm: true}
+      - scan: {}
+      - expect: {conveyor_run: false}          # jam stops the motor
+
+  - name: ack_clears_only_after_jam_gone_then_restart
+    steps:
+      - set: {stop_ok: true, motion_ok: true}
+      - scan: {}
+      - pulse: start_pb
+      - set: {motion_ok: false}
+      - run: {ms: 3400, dt_ms: 100}
+      - expect: {jam_alarm: true, conveyor_run: false}
+      - scan: {n: 2}
+      - pulse: ack_pb                           # motor stopped -> condition gone
+      - expect: {jam_alarm: false}
+      - set: {motion_ok: true}
+      - pulse: start_pb
+      - expect: {conveyor_run: true}

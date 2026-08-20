@@ -83,6 +83,49 @@ def cmd_schema(args) -> int:
     return 0
 
 
+def cmd_test(args) -> int:
+    from ladder.scenario import run_suite
+
+    project = _load_validated(args.ir)
+    results = run_suite(project, args.scenarios,
+                        on_raw="skip" if args.skip_raw else "error")
+    failed = 0
+    for r in results:
+        print(r)
+        failed += not r.passed
+    print(f"{len(results) - failed}/{len(results)} scenarios passed")
+    return 1 if failed else 0
+
+
+def cmd_generate(args) -> int:
+    import os
+
+    from ladder.generate import generate, lint_report
+
+    cmd = args.cmd or os.environ.get("LADDER_LLM_CMD")
+    if not cmd:
+        print("no LLM command: pass --cmd or set LADDER_LLM_CMD "
+              '(any shell command reading the prompt on stdin, e.g. "claude -p")',
+              file=sys.stderr)
+        return 2
+    src = Path(args.requirement)
+    requirement = src.read_text(encoding="utf-8") if src.is_file() else args.requirement
+    result = generate(requirement, cmd, accept=args.accept, max_iters=args.max_iters)
+    for i, att in enumerate(result.attempts, 1):
+        status = "ok" if not att.problems else f"{len(att.problems)} problem(s)"
+        print(f"attempt {i}: {status}")
+        for p in att.problems:
+            print(f"    {p}")
+    if not result.ok:
+        print(f"FAILED after {result.iterations} attempt(s)", file=sys.stderr)
+        return 1
+    Path(args.out).write_text(result.yaml_text + "\n", encoding="utf-8")
+    print(f"wrote {args.out} (accepted after {result.iterations} attempt(s))")
+    for w in lint_report(result.project):
+        print(f"  {w}")
+    return 0
+
+
 def cmd_prompt(args) -> int:
     from ladder.promptgen import build_prompt
 
@@ -164,6 +207,25 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("schema", help="export the IR JSON Schema (the LLM contract)")
     p.add_argument("-o", "--out", default=None)
     p.set_defaults(fn=cmd_schema)
+
+    p = sub.add_parser("test", help="run acceptance scenarios against an IR file "
+                                    "in the simulator")
+    p.add_argument("ir")
+    p.add_argument("scenarios", help="scenarios YAML (see docs/SCENARIOS.md)")
+    p.add_argument("--skip-raw", action="store_true",
+                   help="skip st escape-hatch elements instead of erroring")
+    p.set_defaults(fn=cmd_test)
+
+    p = sub.add_parser("generate", help="model-agnostic generation loop: prompt -> "
+                                        "LLM -> validate -> feedback -> accept")
+    p.add_argument("requirement", help="requirement text, or a path to a text file")
+    p.add_argument("--cmd", default=None,
+                   help="shell command reading prompt on stdin, writing the answer "
+                        "to stdout (default: env LADDER_LLM_CMD)")
+    p.add_argument("--accept", default=None, help="acceptance scenarios YAML")
+    p.add_argument("--max-iters", type=int, default=3)
+    p.add_argument("-o", "--out", default="generated.yaml")
+    p.set_defaults(fn=cmd_generate)
 
     p = sub.add_parser("prompt", help="build a model-agnostic IR-generation prompt "
                                       "bundle (schema + rules + patterns) for any LLM")

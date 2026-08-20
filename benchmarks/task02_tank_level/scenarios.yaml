@@ -1,0 +1,46 @@
+# Acceptance scenarios - task02 tank level
+scenarios:
+  - name: fill_hysteresis
+    steps:
+      - set: {level_pct: 50.0}
+      - scan: {}
+      - expect: {fill_valve_cmd: false}        # mid-band, no previous fill
+      - set: {level_pct: 15.0}
+      - scan: {}
+      - expect: {fill_valve_cmd: true}         # below low setpoint
+      - set: {level_pct: 50.0}
+      - scan: {}
+      - expect: {fill_valve_cmd: true}         # holds through the band
+      - set: {level_pct: 85.0}
+      - scan: {}
+      - expect: {fill_valve_cmd: false}        # high setpoint closes
+      - set: {level_pct: 50.0}
+      - scan: {}
+      - expect: {fill_valve_cmd: false}        # stays closed mid-band
+
+  - name: hi_hi_alarm_debounce_latch_ack
+    steps:
+      - set: {level_pct: 96.0}
+      - run: {ms: 1800, dt_ms: 100}
+      - expect: {hi_hi_alarm: false}           # inside 2 s delay
+      - run: {ms: 400, dt_ms: 100}
+      - expect: {hi_hi_alarm: true}
+      - pulse: ack_pb                          # level still high -> no clear
+      - expect: {hi_hi_alarm: true}
+      - set: {level_pct: 50.0}
+      - scan: {n: 3}
+      - expect: {hi_hi_alarm: true}            # latched until acknowledged
+      - pulse: ack_pb
+      - expect: {hi_hi_alarm: false}
+
+  - name: drain_dry_run_permissive
+    steps:
+      - set: {level_pct: 50.0}
+      - scan: {}
+      - expect: {drain_permit: true}
+      - set: {level_pct: 5.0}
+      - scan: {}
+      - expect: {drain_permit: false}
+      - set: {level_pct: 12.0}
+      - scan: {}
+      - expect: {drain_permit: true}           # simple follow, no latch

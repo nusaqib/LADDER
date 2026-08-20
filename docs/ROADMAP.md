@@ -107,14 +107,15 @@ Remaining: richer property checks, formal path (SMV/nuXmv).
 - Optional formal path: emit SMV for nuXmv model checking (the LLM4PLC /
   Agents4PLC playbook, but over a tiny well-defined AST instead of full ST).
 
-### M5 — Model-agnostic LLM harness + benchmark (target: Q2 2027)
+### M5 — Model-agnostic LLM harness + benchmark (target: Q2 2027) — shipped early
 
-- Generation loop usable with **any** model (hosted or local): JSON-Schema-
-  constrained emission → `ladder validate` issue codes as feedback →
-  build → M4 checks → vendor compile. No model-specific code in the repo.
-- Publish an **evaluation benchmark**: spec-to-IR tasks with machine-checkable
-  acceptance tests (the community contribution the research papers keep
-  asking for; complements Agents4PLC's ST benchmark at a different level).
+Done 2026-08-20: `ladder generate` — provider-neutral loop (any shell
+command reading prompt on stdin: hosted CLI, curl, local model) with
+validator issue codes as feedback and **simulation scenarios as the
+acceptance gate** (`ladder test`, docs/SCENARIOS.md); `benchmarks/` with
+3 spec-to-IR tasks, scenario-scored, CI-verified reference solutions.
+Remaining: grow the benchmark, publish results across models, vendor
+compile as a final loop stage (needs M1 vendor items).
 
 ### M6 / v1.0 — Stability contract
 

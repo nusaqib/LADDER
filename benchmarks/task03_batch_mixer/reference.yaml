@@ -1,0 +1,61 @@
+# Reference solution - task03 batch mixer (CI-verified against scenarios.yaml)
+ir_version: "0.1"
+name: BatchMixer
+description: IDLE -> FILL -> MIX (10 s) -> DRAIN sequence.
+
+tags:
+  - {name: start_pb,    type: BOOL, direction: input,  comment: Start batch}
+  - {name: full_sw,     type: BOOL, direction: input,  comment: Tank full level switch}
+  - {name: empty_sw,    type: BOOL, direction: input,  comment: Tank empty level switch}
+  - {name: fill_valve,  type: BOOL, direction: output, comment: Fill valve}
+  - {name: agitator,    type: BOOL, direction: output, comment: Agitator motor}
+  - {name: drain_valve, type: BOOL, direction: output, comment: Drain valve}
+  - {name: mix_state,   type: INT,  comment: Sequence step for the HMI}
+
+programs:
+  - name: Mixer
+    variables:
+      - {name: mix_done, type: BOOL, comment: Mix dwell elapsed}
+    logic:
+      - element: timer
+        id: T_mix
+        description: 10 s agitation dwell, timed while in MIX.
+        kind: TON
+        input: mix_state = 2
+        preset: T#10s
+        done: mix_done
+
+      - element: state_machine
+        id: SM_batch
+        description: Batch recipe sequencer.
+        state_tag: mix_state
+        initial: IDLE
+        states:
+          - name: IDLE
+            do:
+              - {target: fill_valve,  value: "FALSE"}
+              - {target: agitator,    value: "FALSE"}
+              - {target: drain_valve, value: "FALSE"}
+            transitions:
+              - {when: start_pb, goto: FILL}
+          - name: FILL
+            do:
+              - {target: fill_valve,  value: "TRUE"}
+              - {target: agitator,    value: "FALSE"}
+              - {target: drain_valve, value: "FALSE"}
+            transitions:
+              - {when: full_sw, goto: MIX}
+          - name: MIX
+            do:
+              - {target: fill_valve,  value: "FALSE"}
+              - {target: agitator,    value: "TRUE"}
+              - {target: drain_valve, value: "FALSE"}
+            transitions:
+              - {when: mix_done, goto: DRAIN}
+          - name: DRAIN
+            do:
+              - {target: fill_valve,  value: "FALSE"}
+              - {target: agitator,    value: "FALSE"}
+              - {target: drain_valve, value: "TRUE"}
+            transitions:
+              - {when: empty_sw, goto: IDLE}

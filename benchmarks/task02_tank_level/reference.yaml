@@ -1,0 +1,36 @@
+# Reference solution - task02 tank level (CI-verified against scenarios.yaml)
+ir_version: "0.1"
+name: TankLevel
+description: Fill hysteresis, high-high alarm, drain dry-run permissive.
+
+tags:
+  - {name: level_pct,      type: REAL, direction: input,  comment: Tank level 0-100 pct}
+  - {name: ack_pb,         type: BOOL, direction: input,  comment: Alarm acknowledge}
+  - {name: fill_valve_cmd, type: BOOL, direction: output, comment: Inlet fill valve}
+  - {name: hi_hi_alarm,    type: BOOL, direction: output, comment: Latched high-high alarm}
+  - {name: drain_permit,   type: BOOL, direction: output, comment: Drain pump permissive}
+
+programs:
+  - name: Tank
+    logic:
+      - element: assign
+        target: fill_valve_cmd
+        value: (level_pct < 20.0) OR (fill_valve_cmd AND level_pct < 80.0)
+        description: Fill with 20/80 hysteresis (seal between setpoints).
+
+      - element: alarm
+        id: ALM_hi_hi
+        description: Level at or above 95 pct for 2 s.
+        condition: level_pct >= 95.0
+        on_delay: T#2s
+        latching: true
+        ack: ack_pb
+        output: hi_hi_alarm
+        severity: critical
+
+      - element: interlock
+        id: IL_drain
+        description: Drain pump dry-run protection (follow, non-latching).
+        permissives: level_pct > 10.0
+        output: drain_permit
+        latching: false

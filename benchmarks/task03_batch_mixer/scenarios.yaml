@@ -1,0 +1,44 @@
+# Acceptance scenarios - task03 batch mixer
+scenarios:
+  - name: idle_until_started
+    steps:
+      - set: {full_sw: false, empty_sw: true}
+      - scan: {n: 3}
+      - expect: {mix_state: 0, fill_valve: false, agitator: false, drain_valve: false}
+
+  - name: full_batch_sequence
+    steps:
+      - set: {full_sw: false, empty_sw: true}
+      - scan: {}
+      - pulse: start_pb
+      - expect: {mix_state: 1}
+      - set: {empty_sw: false}                  # tank starts filling
+      - scan: {}
+      - expect: {fill_valve: true, agitator: false}
+      - set: {full_sw: true}
+      - scan: {}
+      - expect: {mix_state: 2}
+      - scan: {}
+      - expect: {fill_valve: false, agitator: true}
+      - run: {ms: 9500, dt_ms: 100}
+      - expect: {mix_state: 2}                  # still mixing inside 10 s
+      - run: {ms: 700, dt_ms: 100}
+      - expect: {mix_state: 3}
+      - scan: {}
+      - expect: {agitator: false, drain_valve: true}
+      - set: {full_sw: false, empty_sw: true}
+      - scan: {}
+      - expect: {mix_state: 0}
+      - scan: {}
+      - expect: {drain_valve: false}
+
+  - name: exactly_one_output_per_step
+    steps:
+      - set: {full_sw: false, empty_sw: false}
+      - scan: {}
+      - pulse: start_pb
+      - scan: {}
+      - expect: {fill_valve: true, agitator: false, drain_valve: false}
+      - set: {full_sw: true}
+      - scan: {n: 2}
+      - expect: {fill_valve: false, agitator: true, drain_valve: false}
