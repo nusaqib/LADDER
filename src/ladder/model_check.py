@@ -39,7 +39,7 @@ from ladder.ir.lower import (
     Stmt,
     lower_project,
 )
-from ladder.ir.model import InterlockEl, Project, compile_cond
+from ladder.ir.model import AlarmGroupEl, InterlockEl, Project, compile_cond
 
 
 class ModelError(ValueError):
@@ -316,6 +316,16 @@ def emit_smv(project: Project, lp: LoweredProgram) -> str:
             perm = _smv_expr(compile_cond(el.permissives), _PropCtx())
             lines.append(f"-- {el.id}: permit never TRUE while a permissive is down")
             lines.append(f"INVARSPEC ({el.output} -> {perm});")
+        elif isinstance(el, AlarmGroupEl):
+            active = _var(tuple(el.active.split(".")))
+            if el.unacked:
+                unacked = _var(tuple(el.unacked.split(".")))
+                lines.append(f"-- {el.id}: horn never sounds without the group lamp")
+                lines.append(f"INVARSPEC ({unacked} -> {active});")
+            if el.first_out:
+                fo = _var(tuple(el.first_out.split(".")))
+                lines.append(f"-- {el.id}: first-out is nonzero exactly while the group is active")
+                lines.append(f"INVARSPEC ({active} <-> ({fo} != 0));")
     return "\n".join(lines) + "\n"
 
 

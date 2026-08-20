@@ -1,0 +1,55 @@
+# Acceptance scenarios - annunciator alarm group semantics
+scenarios:
+  - name: clean_panel_all_off
+    steps:
+      - set: {flow_ok: true, temp_ok: true, vacuum_ok: true, door_closed: true}
+      - scan: {n: 2}
+      - expect: {alarm_lamp: false, horn: false, first_out_code: 0}
+
+  - name: first_out_captures_first_trip_only
+    steps:
+      - set: {flow_ok: true, temp_ok: true, vacuum_ok: true, door_closed: true}
+      - scan: {}
+      - set: {temp_ok: false}          # member 2 trips first
+      - scan: {}
+      - expect: {alarm_lamp: true, horn: true, temp_lamp: true, first_out_code: 2}
+      - set: {vacuum_ok: false}        # member 3 trips later
+      - scan: {}
+      - expect: {first_out_code: 2}    # first-out unchanged
+
+  - name: ack_silences_horn_lamp_stays_while_condition_stands
+    steps:
+      - set: {flow_ok: true, temp_ok: true, vacuum_ok: true, door_closed: true}
+      - scan: {}
+      - set: {door_closed: false}
+      - scan: {}
+      - expect: {horn: true, alarm_lamp: true}
+      - pulse: ack_pb
+      - expect: {horn: false, alarm_lamp: true}   # still latched: condition stands
+      - set: {door_closed: true}                  # condition clears...
+      - scan: {}
+      - expect: {alarm_lamp: true}                # ...but needs an ack to reset
+      - pulse: ack_pb
+      - expect: {alarm_lamp: false, first_out_code: 0}
+
+  - name: new_alarm_resounds_horn_after_ack
+    steps:
+      - set: {flow_ok: true, temp_ok: true, vacuum_ok: true, door_closed: true}
+      - scan: {}
+      - set: {temp_ok: false}
+      - scan: {}
+      - pulse: ack_pb
+      - expect: {horn: false, alarm_lamp: true}
+      - set: {vacuum_ok: false}        # a NEW alarm must re-sound the horn
+      - scan: {}
+      - expect: {horn: true, first_out_code: 2}
+
+  - name: delayed_member_debounces_then_trips
+    steps:
+      - set: {flow_ok: true, temp_ok: true, vacuum_ok: true, door_closed: true}
+      - scan: {}
+      - set: {flow_ok: false}
+      - run: {ms: 1800, dt_ms: 100}
+      - expect: {flow_lamp: false, alarm_lamp: false}   # inside the 2s delay
+      - run: {ms: 400, dt_ms: 100}
+      - expect: {flow_lamp: true, alarm_lamp: true, first_out_code: 1}

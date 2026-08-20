@@ -37,6 +37,7 @@ from ladder.ir import expr as X
 from ladder.ir.model import (
     SCALAR_TYPES,
     AlarmEl,
+    AlarmGroupEl,
     AssignEl,
     Cond,
     InterlockEl,
@@ -320,6 +321,26 @@ def _validate_program(project: Project, prog: Program,
                 res.add("V05", w, "latching alarm requires an ack signal")
             if el.ack:
                 check_read(el.ack, w)
+        elif isinstance(el, AlarmGroupEl):
+            member_names: set[str] = set()
+            for m in el.alarms:
+                mw = f"{w}/{m.name}"
+                _check_ident(m.name, mw, res)
+                if m.name in member_names:
+                    res.add("V02", mw, "duplicate alarm name in group")
+                member_names.add(m.name)
+                check_read(m.condition, mw)
+                if m.output:
+                    check_write(m.output, mw, want_bool=True)
+            check_read(el.ack, w)
+            check_write(el.active, w, want_bool=True)
+            if el.unacked:
+                check_write(el.unacked, w, want_bool=True)
+            if el.first_out:
+                fo_type = check_write(el.first_out, w)
+                if fo_type is not None and fo_type not in STATE_TYPES:
+                    res.add("V06", w, f"first_out {el.first_out!r} must be "
+                            f"INT or DINT, is {fo_type}")
         elif isinstance(el, TimerEl):
             check_read(el.input, w)
             if el.done:
@@ -383,6 +404,15 @@ def lint_project(project: Project) -> list[Issue]:
                 add_write(el.output, prog.name)
                 if el.ack:
                     reads.add(_lint_root(el.ack))
+            elif isinstance(el, AlarmGroupEl):
+                for m in el.alarms:
+                    add_reads(m.condition)
+                    if m.output:
+                        add_write(m.output, prog.name)
+                reads.add(_lint_root(el.ack))
+                for t in (el.active, el.unacked, el.first_out):
+                    if t:
+                        add_write(t, prog.name)
             elif isinstance(el, TimerEl):
                 add_reads(el.input)
                 for t in (el.done, el.elapsed):
@@ -440,6 +470,9 @@ def _element_writes(el) -> list[str]:
         return [el.target]
     if isinstance(el, (InterlockEl, AlarmEl)):
         return [el.output]
+    if isinstance(el, AlarmGroupEl):
+        return ([t for t in (el.active, el.unacked, el.first_out) if t]
+                + [m.output for m in el.alarms if m.output])
     if isinstance(el, TimerEl):
         return [t for t in (el.done, el.elapsed) if t]
     if isinstance(el, ScaleEl):

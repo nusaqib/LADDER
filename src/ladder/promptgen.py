@@ -53,6 +53,10 @@ and plain IEC 61131-3 artifacts. You never write vendor syntax.
   re-arms only on manual reset (rising edge) while healthy.
 - `alarm` - condition TRUE = active; optional `on_delay` debounce (TON),
   optional latching with `ack`; severity info/warning/alarm/critical.
+- `alarm_group` - annunciator: N latched alarms with a common `ack`, group
+  `active` lamp, optional `unacked` horn (re-sounds on each new alarm) and
+  `first_out` INT capture (1-based member index of the first trip; 0=none).
+  Prefer this over N separate alarms whenever alarms share an ack/horn.
 - `timer` - standalone TON/TOF/TP with `preset`, optional `done`/`elapsed`.
 - `state_machine` - named states with per-scan `do` assigns and ordered
   `transitions` (first match wins); lowered to a CASE statement.

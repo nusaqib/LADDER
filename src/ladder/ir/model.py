@@ -190,6 +190,59 @@ class AlarmEl(BaseModel):
         return v
 
 
+class GroupAlarm(BaseModel):
+    """One member of an alarm group. Same sense as `alarm`: condition TRUE
+    = alarm present; optional on-delay debounce."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    condition: Cond
+    on_delay: Optional[str] = Field(
+        default=None, description="IEC TIME literal, e.g. 'T#2s'."
+    )
+    output: Optional[str] = Field(
+        default=None, description="Optional BOOL tag mirroring this member's latched bit."
+    )
+    description: Optional[str] = None
+
+    @field_validator("on_delay")
+    @classmethod
+    def _check_delay(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            X.parse_time_literal(v)
+        return v
+
+
+class AlarmGroupEl(BaseModel):
+    """Annunciator-style alarm group: N latched alarms with a common
+    acknowledge, a group-active lamp, an unacknowledged (horn) output that
+    re-sounds on every new alarm, and first-out capture.
+
+    Semantics (locked in lowering): each member latches on the rising edge
+    of its (optionally delayed) condition. Ack (rising edge) silences the
+    horn immediately and clears any latched member whose condition is gone.
+    `first_out` receives the 1-based list index of the first member to trip
+    after the group was clean; it resets to 0 when all members clear.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    element: Literal["alarm_group"]
+    id: str
+    alarms: list[GroupAlarm] = Field(min_length=1)
+    ack: str = Field(description="Common acknowledge signal (BOOL, rising edge).")
+    active: str = Field(description="BOOL tag: any member latched (group lamp).")
+    unacked: Optional[str] = Field(
+        default=None,
+        description="Optional BOOL tag: any member not yet acknowledged (horn).",
+    )
+    first_out: Optional[str] = Field(
+        default=None,
+        description="Optional INT/DINT tag: 1-based index of the first member "
+        "to trip (0 = none). Resets when the group clears.",
+    )
+    description: Optional[str] = None
+
+
 class TimerEl(BaseModel):
     """Standalone IEC timer (TON / TOF / TP)."""
 
@@ -298,8 +351,8 @@ class RawStEl(BaseModel):
 
 
 LogicElement = Annotated[
-    Union[AssignEl, InterlockEl, AlarmEl, TimerEl, StateMachineEl, ScaleEl,
-          PatternEl, RawStEl],
+    Union[AssignEl, InterlockEl, AlarmEl, AlarmGroupEl, TimerEl,
+          StateMachineEl, ScaleEl, PatternEl, RawStEl],
     Field(discriminator="element"),
 ]
 

@@ -131,6 +131,35 @@ permissives are healthy. Non-latching (`latching: false`) is a plain follow.
 Latched alarms clear on an ack rising edge only after the (delayed)
 condition has gone.
 
+### alarm_group — annunciator with first-out
+
+```yaml
+- element: alarm_group
+  id: GRP_panel
+  ack: ack_pb             # common acknowledge (rising edge)
+  active: alarm_lamp      # BOOL: any member latched (group lamp)
+  unacked: horn           # optional BOOL: any unacknowledged (horn)
+  first_out: fo_code      # optional INT/DINT: 1-based index of first trip
+  alarms:
+    - name: no_flow
+      condition: {not: flow_ok}
+      on_delay: T#2s      # optional per-member debounce
+      output: flow_lamp   # optional BOOL mirroring this member's latch
+    - name: overtemp
+      condition: {not: temp_ok}
+```
+
+Annunciator semantics (ISA 18.1 sequence A, simplified), locked in
+lowering: each member latches on the rising edge of its (delayed)
+condition; a **new** alarm re-sounds the horn even while older alarms
+stand unacknowledged; ack silences the horn immediately and clears any
+latched member whose condition has gone (a standing condition stays
+latched until it clears and is acked again). `first_out` receives the
+1-based list index of the first member to trip after the group was clean
+(0 = none) and resets when the group clears. `ladder model` auto-generates
+the theorems `unacked -> active` and `active <-> first_out <> 0` for
+nuXmv.
+
 ### timer
 
 ```yaml

@@ -25,6 +25,7 @@ from typing import Union
 from ladder.ir import expr as X
 from ladder.ir.model import (
     AlarmEl,
+    AlarmGroupEl,
     AssignEl,
     InterlockEl,
     Program,
@@ -147,6 +148,8 @@ def _lower_element(el, synth: list[SynthVar], types: dict[str, str]) -> list[Stm
         return _lower_interlock(el, synth)
     if isinstance(el, AlarmEl):
         return _lower_alarm(el, synth)
+    if isinstance(el, AlarmGroupEl):
+        return _lower_alarm_group(el, synth)
     if isinstance(el, TimerEl):
         return _lower_timer(el, synth)
     if isinstance(el, StateMachineEl):
@@ -226,6 +229,81 @@ def _lower_alarm(el: AlarmEl, synth: list[SynthVar]) -> list[Stmt]:
     out.append(SIf(X.Bin("AND", ack_edge, X.Un("NOT", trip)),
                    [SAssign(output, X.Lit(False, "bool"))]))
     out.append(SAssign(_ref(mem), _ref(el.ack)))
+    return out
+
+
+def _lower_alarm_group(el: AlarmGroupEl, synth: list[SynthVar]) -> list[Stmt]:
+    """Annunciator semantics (ISA 18.1 sequence A, simplified):
+
+    - each member latches on the rising edge of its (delayed) condition
+    - a new alarm re-sounds the horn even while older ones stand unacked
+    - ack silences the horn and clears latched members whose condition is gone
+    - first_out captures the first member to trip after the group was clean
+      (1-based list index; 0 = none), and clears when the group clears
+    """
+    out = _header(el, "alarm_group")
+    if el.first_out:
+        legend = ", ".join(f"{i}={m.name}" for i, m in enumerate(el.alarms, 1))
+        out.append(SComment(f"first_out codes: 0=none, {legend}"))
+
+    trips: list[X.Expr] = []
+    lats: list[str] = []
+    unks: list[str] = []
+    fo = _ref(el.first_out) if el.first_out else None
+
+    for i, m in enumerate(el.alarms, 1):
+        raw = compile_cond(m.condition)
+        if m.on_delay:
+            inst = f"{el.id}_{m.name}_ton"
+            synth.append(SynthVar(inst, "timer", "TON",
+                                  comment=f"on-delay for {el.id}/{m.name}"))
+            out.append(STimerCall(inst, "TON", raw, X.parse_time_literal(m.on_delay)))
+            trip: X.Expr = X.Ref((inst, "Q"))
+        else:
+            trip = raw
+        trips.append(trip)
+        lat = f"{el.id}_{m.name}_lat"
+        mem = f"{el.id}_{m.name}_mem"
+        synth.append(SynthVar(lat, "bool", comment=f"latched alarm {m.name}"))
+        synth.append(SynthVar(mem, "bool", comment=f"trip edge memory for {m.name}"))
+        lats.append(lat)
+        body: list[Stmt] = [SAssign(_ref(lat), X.Lit(True, "bool"))]
+        if el.unacked:
+            unk = f"{el.id}_{m.name}_unk"
+            synth.append(SynthVar(unk, "bool", comment=f"unacknowledged {m.name}"))
+            unks.append(unk)
+            body.append(SAssign(_ref(unk), X.Lit(True, "bool")))
+        if fo is not None:
+            body.append(SIf(X.Bin("=", fo, X.Lit(0, "int")),
+                            [SAssign(fo, X.Lit(i, "int"))]))
+        label = f"member {i}: {m.name}"
+        if m.description:
+            label += f" - {m.description}"
+        out.append(SComment(label))
+        out.append(SIf(X.Bin("AND", trip, X.Un("NOT", _ref(mem))), body))
+        out.append(SAssign(_ref(mem), trip))
+
+    # common acknowledge: silence horn, clear members whose condition is gone
+    ack_mem = f"{el.id}_ack_mem"
+    synth.append(SynthVar(ack_mem, "bool", comment=f"edge memory for {el.ack}"))
+    ack_body: list[Stmt] = []
+    for i, m in enumerate(el.alarms):
+        if el.unacked:
+            ack_body.append(SAssign(_ref(unks[i]), X.Lit(False, "bool")))
+        ack_body.append(SIf(X.Un("NOT", trips[i]),
+                            [SAssign(_ref(lats[i]), X.Lit(False, "bool"))]))
+    out.append(SIf(X.Bin("AND", _ref(el.ack), X.Un("NOT", _ref(ack_mem))), ack_body))
+    out.append(SAssign(_ref(ack_mem), _ref(el.ack)))
+
+    # group outputs
+    out.append(SAssign(_ref(el.active), X.any_of([_ref(n) for n in lats])))
+    if el.unacked:
+        out.append(SAssign(_ref(el.unacked), X.any_of([_ref(n) for n in unks])))
+    for i, m in enumerate(el.alarms):
+        if m.output:
+            out.append(SAssign(_ref(m.output), _ref(lats[i])))
+    if fo is not None:
+        out.append(SIf(X.Un("NOT", _ref(el.active)), [SAssign(fo, X.Lit(0, "int"))]))
     return out
 
 
