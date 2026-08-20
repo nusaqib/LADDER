@@ -42,5 +42,6 @@ def test_skill_cli_subcommands_exist():
     cli_src = (ROOT / "src" / "ladder" / "cli.py").read_text(encoding="utf-8")
     sub = set(re.findall(r'add_parser\("([a-z]+)"', cli_src))
     for path in SKILLS.glob("*/SKILL.md"):
-        for cmd in re.findall(r"ladder ([a-z]+)", path.read_text(encoding="utf-8")):
+        # only command contexts: `ladder x` or ...\Scripts\ladder x
+        for cmd in re.findall(r"[`\\]ladder ([a-z]+)", path.read_text(encoding="utf-8")):
             assert cmd in sub, f"{path.parent.name}: unknown CLI subcommand 'ladder {cmd}'"
