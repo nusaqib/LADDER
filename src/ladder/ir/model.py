@@ -371,6 +371,13 @@ class Program(BaseModel):
     interval: Optional[str] = Field(
         default=None, description="TIME literal, required when execution='periodic'."
     )
+    language: Literal["st", "il", "ladder", "fbd", "sfc"] = Field(
+        default="st",
+        description="Preferred IEC 61131-3 representation. A rendering "
+        "preference, not semantics: backends honor it where the target "
+        "supports that language and fall back to ST otherwise. Validation "
+        "(V11) rejects logic the chosen language cannot express.",
+    )
     variables: list[Tag] = Field(default_factory=list)
     logic: list[LogicElement] = Field(min_length=1)
     description: Optional[str] = None

@@ -46,6 +46,11 @@ and plain IEC 61131-3 artifacts. You never write vendor syntax.
 6. Latching interlocks require a `reset`; latching alarms require an `ack`.
 7. Give every stateful element a unique, meaningful `id` (e.g. `IL_shutter`,
    `ALM_vacuum`), and every element a `description`.
+8. Optionally set a program's `language` (st | il | ladder | fbd | sfc) as a
+   rendering preference - e.g. `ladder` for simple boolean/interlock
+   programs, `sfc` for a program that is exactly one state_machine. When
+   unsure, omit it (defaults to st). V11 rejects logic the language cannot
+   express.
 
 ## Element vocabulary
 

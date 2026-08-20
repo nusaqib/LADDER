@@ -62,3 +62,13 @@ jobs:
           MATIEC_LIB: /home/runner/matiec/lib
         run: ladder verify examples/vacuum_interlock.yaml -t iec -o out
              --iomap examples/vacuum_interlock.iomap.yaml
+      - name: Verify emitted IEC IL with iec2c (languages demo)
+        env:
+          MATIEC_BIN: /home/runner/matiec/iec2c
+          MATIEC_LIB: /home/runner/matiec/lib
+        run: ladder verify examples/languages_demo.yaml -t iec -o out
+      - name: Verify annunciator example with iec2c
+        env:
+          MATIEC_BIN: /home/runner/matiec/iec2c
+          MATIEC_LIB: /home/runner/matiec/lib
+        run: ladder verify examples/annunciator.yaml -t iec -o out

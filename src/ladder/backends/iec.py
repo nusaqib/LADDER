@@ -139,7 +139,24 @@ class IecBackend(Backend):
 
     def _pou(self, project: Project, name: str, lp: LoweredProgram,
              d: StrictIecDialect) -> list[str]:
+        # render the body first: the IL renderer may add BOOL temporaries
+        extra_bools: list[str] = []
+        if lp.program.language == "il":
+            from ladder.backends.il import IlRenderer
+
+            renderer = IlRenderer()
+            body = renderer.body(lp)
+            extra_bools = renderer.extra_bools
+            note = None
+        else:
+            body = d.body(lp)
+            note = (f"language '{lp.program.language}' has no IEC textual "
+                    "form; rendered as ST"
+                    if lp.program.language in ("ladder", "fbd", "sfc") else None)
+
         out = [f"PROGRAM {name}"]
+        if note:
+            out.append(f"(* {note} *)")
         ext = external_globals(project, lp)
         if ext:
             out.append("VAR_EXTERNAL")
@@ -154,12 +171,14 @@ class IecBackend(Backend):
             type_ = d.timer_decl_type(v) if v.kind == "timer" else "BOOL"
             locals_.append(f"    {v.name} : {type_};"
                            + (f"  (* {_safe_comment(v.comment)} *)" if v.comment else ""))
+        for extra in extra_bools:
+            locals_.append(f"    {extra} : BOOL;  (* IL timer-input temporary *)")
         if locals_:
             out.append("VAR")
             out.extend(locals_)
             out.append("END_VAR")
         out.append("")
-        out.extend("    " + line if line else "" for line in d.body(lp).splitlines())
+        out.extend("    " + line if line else "" for line in body.splitlines())
         out.append("END_PROGRAM")
         return out
 

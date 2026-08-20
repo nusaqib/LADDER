@@ -241,6 +241,24 @@ Neutral ST passed through with reference decoration only. Bypasses most
 IR-level checking — keep rare; recurring uses should become new elements
 or patterns.
 
+## Languages (per program)
+
+`language: st | il | ladder | fbd | sfc` (default `st`) declares the
+preferred IEC 61131-3 representation for a program. It is a **rendering
+preference, not semantics** — every language renders the same lowered
+statement AST, so the simulator, scenarios, and model checker are
+unaffected. Backends honor the preference where the target format
+supports that language and fall back to ST otherwise (noted in the
+output). Validation **V11** rejects logic the chosen language cannot
+express:
+
+| language | can express | rejected (V11) |
+|---|---|---|
+| `st` | everything | — |
+| `il` | everything structured | raw `st` elements |
+| `ladder` / `fbd` | assign (BOOL), interlock, alarm, alarm_group, timer (no `elapsed`) | state_machine, scale, st, non-BOOL assigns |
+| `sfc` | exactly one state_machine | anything else |
+
 ## Programs
 
 ```yaml

@@ -16,6 +16,8 @@ Checks:
   V09 pattern elements must be expanded before validation
   V10 type errors: unknown/cyclic UDTs, bad member paths, out-of-range
       array indices, complex (UDT/array) tags used as IO or whole-value
+  V11 program language cannot express the program's logic (e.g. a state
+      machine in ladder, raw st in il, non-BOOL assigns in ladder/fbd)
 
 lint_project() adds non-fatal warnings on top:
   W01 output tag never written by any program
@@ -363,6 +365,46 @@ def _validate_program(project: Project, prog: Program,
                     "via load_project (or call ladder.patterns.expand_project)")
         elif isinstance(el, RawStEl):
             pass  # escape hatch: backends lint lightly
+
+    _check_language(prog, pw, resolve, res)
+
+
+#: elements a graphic boolean language (LD / FBD) can express
+_GRAPHIC_ELEMENTS = {"assign", "interlock", "alarm", "alarm_group", "timer"}
+
+
+def _check_language(prog: Program, pw: str, resolve, res: ValidationResult) -> None:
+    """V11: the chosen language must be able to express the program."""
+    lang = prog.language
+    if lang == "st":
+        return
+    if lang == "il":
+        for el in prog.logic:
+            if isinstance(el, RawStEl):
+                res.add("V11", f"{pw}/{el.id}",
+                        "raw st element cannot be rendered as il")
+        return
+    if lang == "sfc":
+        real = [el for el in prog.logic if not isinstance(el, PatternEl)]
+        if len(real) != 1 or not isinstance(real[0], StateMachineEl):
+            res.add("V11", pw, "an sfc program must contain exactly one "
+                    "state_machine element and nothing else")
+        return
+    # ladder / fbd: boolean networks, timers, and annunciators only
+    for el in prog.logic:
+        w = f"{pw}/{getattr(el, 'id', None) or el.element}"
+        if el.element not in _GRAPHIC_ELEMENTS:
+            res.add("V11", w, f"element {el.element!r} cannot be rendered as "
+                    f"{lang} (use st, or sfc for state machines)")
+        elif isinstance(el, AssignEl):
+            final = resolve(el.target, w, "V04")
+            if final is not None and final not in BOOL_TYPES:
+                res.add("V11", w, f"{lang} assigns must target BOOL tags "
+                        f"({el.target!r} is {final})")
+        elif isinstance(el, TimerEl):
+            if el.elapsed:
+                res.add("V11", w, f"timer 'elapsed' output is not rendered in "
+                        f"{lang}; drop it or use st")
 
 def _lint_root(name: str) -> str:
     try:

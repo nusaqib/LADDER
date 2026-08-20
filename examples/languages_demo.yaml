@@ -1,0 +1,87 @@
+# One project, four IEC 61131-3 languages. `language:` is a rendering
+# preference per program - semantics come from the same IR elements and the
+# same lowering; backends honor the language where the target supports it
+# and fall back to ST otherwise (V11 rejects logic a language cannot express).
+ir_version: "0.2"
+name: LangDemo
+description: The same IR rendered as ladder, FBD, SFC, and IL.
+
+tags:
+  # fail-safe sense: 1 = OK / healthy / closed
+  - {name: estop_ok,     type: BOOL, direction: input,  comment: E-stop chain healthy}
+  - {name: guard_closed, type: BOOL, direction: input,  comment: Guard door closed}
+  - {name: reset_pb,     type: BOOL, direction: input,  comment: Fault reset pushbutton}
+  - {name: start_pb,     type: BOOL, direction: input,  comment: Start pushbutton}
+  - {name: motion_ok,    type: BOOL, direction: input,  comment: Motion feedback healthy}
+  - {name: ack_pb,       type: BOOL, direction: input,  comment: Alarm acknowledge}
+  - {name: level_hi,     type: BOOL, direction: input,  comment: Tank high level}
+  - {name: level_lo,     type: BOOL, direction: input,  comment: Tank low level}
+
+  - {name: run_permit,   type: BOOL, direction: output, comment: Master run permit}
+  - {name: jam_alarm,    type: BOOL, direction: output, comment: Conveyor jam alarm}
+  - {name: motor_run,    type: BOOL, direction: output, comment: Conveyor motor}
+  - {name: warmed_up,    type: BOOL, direction: output, comment: Motor warmup complete}
+  - {name: fill_valve,   type: BOOL, direction: output, comment: Tank fill valve}
+  - {name: drain_valve,  type: BOOL, direction: output, comment: Tank drain valve}
+
+  - {name: seq_state,    type: INT, comment: Tank sequence state code}
+
+programs:
+  - name: Safety
+    language: ladder
+    description: Master permissive - rendered as ladder rungs where supported.
+    logic:
+      - element: interlock
+        id: IL_master
+        description: E-stop and guard chain
+        permissives: {all: [estop_ok, guard_closed]}
+        output: run_permit
+        reset: {signal: reset_pb}
+
+  - name: JamDetect
+    language: fbd
+    description: Jam alarm - rendered as function block networks.
+    logic:
+      - element: alarm
+        id: ALM_jam
+        description: Motor commanded but no motion feedback
+        condition: {all: [motor_run, {not: motion_ok}]}
+        on_delay: T#2s
+        latching: true
+        ack: ack_pb
+        output: jam_alarm
+        severity: alarm
+
+  - name: Sequence
+    language: sfc
+    description: Tank batch sequence - rendered as an SFC chart.
+    logic:
+      - element: state_machine
+        id: SEQ_tank
+        state_tag: seq_state
+        initial: idle
+        states:
+          - name: idle
+            do: [{target: fill_valve, value: "FALSE"}, {target: drain_valve, value: "FALSE"}]
+            transitions: [{when: {all: [start_pb, run_permit]}, goto: filling}]
+          - name: filling
+            do: [{target: fill_valve, value: "TRUE"}, {target: drain_valve, value: "FALSE"}]
+            transitions: [{when: level_hi, goto: draining}]
+          - name: draining
+            do: [{target: fill_valve, value: "FALSE"}, {target: drain_valve, value: "TRUE"}]
+            transitions: [{when: {not: level_lo}, goto: idle}]
+
+  - name: Runtime
+    language: il
+    description: Motor seal-in and warmup - rendered as instruction list.
+    logic:
+      - element: assign
+        target: motor_run
+        value: {all: [run_permit, {any: [start_pb, motor_run]}]}
+        description: Seal-in motor start
+      - element: timer
+        id: T_warmup
+        input: {all: [run_permit, motor_run]}
+        preset: T#3s
+        done: warmed_up
+        description: Warmup complete after 3s running
