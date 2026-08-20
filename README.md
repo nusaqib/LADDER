@@ -110,3 +110,5 @@ structure:
 | LAD/FBD rendering, formal checks, simulation | ⬜ roadmap |
 
 Agent/LLM working notes (tool-agnostic): [AGENTS.md](AGENTS.md).
+Expert workflows as portable skills (intake → IR → vendor deploy → verify):
+[skills/](skills/), built on the [Design Inputs Map](docs/DESIGN-INPUTS.md).

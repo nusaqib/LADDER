@@ -87,3 +87,23 @@ proofs hold for every preset and scan rate.
    (`all:/any:/not:`) over long expression strings.
 3. Validate (`ladder validate`) and iterate on the issue codes before any
    vendor build. The validator's messages are written to be machine-actionable.
+
+## Skills (expert workflows, tool-agnostic)
+
+[skills/](skills/) packages the expert workflows as SKILL.md documents any
+agent framework can load (Claude Code discovers them via thin stubs in
+`.claude/skills/`; other tools can read them directly — they are plain
+markdown with name/description frontmatter):
+
+- **design-intake** — plain-language requirement → the Design Inputs Map
+  ([docs/DESIGN-INPUTS.md](docs/DESIGN-INPUTS.md)), the structured intake
+  that makes generation reliable.
+- **ir-authoring** — design map → validated IR + scenario suite
+  (element-selection priority, issue-code loop, scenario authoring).
+- **siemens-deploy** / **rockwell-deploy** — vendor-specific build,
+  IO-map, import/compile, and triage procedures.
+- **verification** — the four proof layers (simulate, lint, matiec,
+  nuXmv) and what each does and does not prove.
+
+The intended flow: design-intake → ir-authoring → vendor skill, with
+verification before any handoff.
