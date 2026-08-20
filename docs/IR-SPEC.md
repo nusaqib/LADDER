@@ -230,6 +230,30 @@ Lowering also **synthesizes** hidden locals per program: timer instances
 (`<id>_ton`, `<id>_t`) and edge memories (`<id>_rst_mem`, `<id>_ack_mem`) —
 identical state on every vendor.
 
+## IO maps (separate document)
+
+The IR never carries hardware. A per-vendor IO map binds IO tags to real
+addresses at build time (`ladder build --iomap plant.iomap.yaml`):
+
+```yaml
+io_version: "0.1"
+project: VacuumInterlock            # must match the IR project name
+siemens:
+  pressure_ok: {address: "%I8.0"}   # absolute PLC-tag address
+rockwell:
+  pressure_ok: {alias: "Local:1:I.Data.0"}   # controller tag becomes an alias
+beckhoff:
+  pressure_ok: {address: "%IX0.0"}  # AT %.. located variable ("%I*" = link later)
+iec:
+  pressure_ok: {address: "%IX8.0"}  # 61131 located variable
+```
+
+Each section uses that vendor's own syntax; the map is cross-checked
+against the IR (tags exist, are IO, no duplicate bindings) before any
+backend runs. Unmapped IO keeps default behavior (auto-allocated scratch
+addresses on Siemens, plain tags elsewhere). See
+[examples/vacuum_interlock.iomap.yaml](../examples/vacuum_interlock.iomap.yaml).
+
 ## Validation codes
 
 | Code | Meaning |

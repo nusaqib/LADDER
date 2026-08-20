@@ -77,8 +77,10 @@ without any vendor software.
 
 Done 2026-08-20: IR-level `element: pattern` with expansion before
 validation (V09 guard); built-ins `motor_starter`, `valve_with_feedback`;
-`examples/pump_skid.yaml`. Remaining: mine the reference programs, richer
-IR (UDTs, PID, motion, alarm groups), IO-mapping layer.
+`examples/pump_skid.yaml`. IR v0.2: UDTs + arrays (V10 typed resolution),
+`scale`; **IO-mapping layer** (`--iomap`: Siemens addresses, Logix alias
+tags, TwinCAT/IEC located variables — hardware stays out of the IR).
+Remaining: mine the reference programs; PID, motion, alarm groups.
 
 *Shrink the LLM's job from "write the IR" to "pick patterns, fill parameters".*
 

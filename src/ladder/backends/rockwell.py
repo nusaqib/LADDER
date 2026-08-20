@@ -55,11 +55,15 @@ class RockwellBackend(Backend):
     target = "Studio 5000 Logix Designer V36"
 
     def emit(self, project: Project, lowered: dict[str, LoweredProgram],
-             outdir: Path) -> list[Path]:
+             outdir: Path, iomap=None) -> list[Path]:
+        aliases = {}
+        if iomap is not None:
+            aliases = {name: b.alias for name, b in iomap.section("rockwell").items()
+                       if b.alias}
         root = outdir / "rockwell"
         root.mkdir(parents=True, exist_ok=True)
         path = root / f"{project.name}.L5X"
-        path.write_text(self._render(project, lowered), encoding="utf-8")
+        path.write_text(self._render(project, lowered, aliases), encoding="utf-8")
         return [path]
 
     # ------------------------------------------------------------------ L5X
@@ -91,7 +95,19 @@ class RockwellBackend(Backend):
         out.append(f"{indent}</Tag>")
         return out
 
-    def _render(self, project: Project, lowered: dict[str, LoweredProgram]) -> str:
+    def _alias_tag_xml(self, t: Tag, alias_for: str, indent: str) -> list[str]:
+        """Controller tag as an alias for a physical IO point."""
+        out = [f'{indent}<Tag Name={quoteattr(t.name)} TagType="Alias" '
+               f'Radix="Decimal" AliasFor={quoteattr(alias_for)} '
+               f'ExternalAccess="Read/Write">']
+        if t.comment:
+            out.append(f"{indent}  <Description>{_cdata(t.comment)}</Description>")
+        out.append(f"{indent}</Tag>")
+        return out
+
+    def _render(self, project: Project, lowered: dict[str, LoweredProgram],
+                aliases: dict[str, str] | None = None) -> str:
+        aliases = aliases or {}
         hints = self.hints(project)
         processor = hints.get("processor", "1756-L85E")
         major = hints.get("major_rev", 36)
@@ -117,7 +133,10 @@ class RockwellBackend(Backend):
         # controller (global) tags
         x.append("    <Tags>")
         for t in project.tags:
-            x.extend(self._tag_xml(t, "      "))
+            if t.name in aliases:
+                x.extend(self._alias_tag_xml(t, aliases[t.name], "      "))
+            else:
+                x.extend(self._tag_xml(t, "      "))
         x.append("    </Tags>")
 
         # programs

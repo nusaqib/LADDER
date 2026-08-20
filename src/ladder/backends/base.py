@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Type
+from typing import TYPE_CHECKING, Optional, Type
 
 from ladder.ir.lower import LoweredProgram
 from ladder.ir.model import Project
+
+if TYPE_CHECKING:
+    from ladder.iomap import IoMap
 
 
 class BackendError(ValueError):
@@ -24,8 +27,13 @@ class Backend(ABC):
 
     @abstractmethod
     def emit(self, project: Project, lowered: dict[str, LoweredProgram],
-             outdir: Path) -> list[Path]:
-        """Write vendor artifacts under outdir; return the files written."""
+             outdir: Path, iomap: Optional["IoMap"] = None) -> list[Path]:
+        """Write vendor artifacts under outdir; return the files written.
+
+        iomap (optional) binds IO tags to this vendor's addresses/aliases;
+        backends consume only their own section and ignore other vendors'
+        syntax entirely.
+        """
 
     def hints(self, project: Project) -> dict:
         """Per-backend section of project.vendor (may be empty)."""

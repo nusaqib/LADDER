@@ -1,0 +1,41 @@
+# IO map for examples/vacuum_interlock.yaml - hardware bindings live HERE,
+# never in the IR. Each section uses that vendor's own address syntax.
+#   ladder build examples/vacuum_interlock.yaml --iomap examples/vacuum_interlock.iomap.yaml
+
+io_version: "0.1"
+project: VacuumInterlock
+
+siemens:                       # absolute PLC-tag addresses (ET200SP card layout)
+  pressure_ok:         {address: "%I8.0"}
+  gate_valve_closed:   {address: "%I8.1"}
+  pump_running_fb:     {address: "%I8.2"}
+  reset_pb:            {address: "%I8.3"}
+  ack_pb:              {address: "%I8.4"}
+  pumpdown_request:    {address: "%I8.5"}
+  beam_shutter_permit: {address: "%Q4.0"}
+  pump_start_cmd:      {address: "%Q4.1"}
+  vacuum_alarm:        {address: "%Q4.2"}
+  pump_fault_alarm:    {address: "%Q4.3"}
+
+rockwell:                      # controller tags become aliases for IO points
+  pressure_ok:         {alias: "Local:1:I.Data.0"}
+  gate_valve_closed:   {alias: "Local:1:I.Data.1"}
+  pump_running_fb:     {alias: "Local:1:I.Data.2"}
+  reset_pb:            {alias: "Local:1:I.Data.3"}
+  ack_pb:              {alias: "Local:1:I.Data.4"}
+  pumpdown_request:    {alias: "Local:1:I.Data.5"}
+  beam_shutter_permit: {alias: "Local:2:O.Data.0"}
+  pump_start_cmd:      {alias: "Local:2:O.Data.1"}
+  vacuum_alarm:        {alias: "Local:2:O.Data.2"}
+  pump_fault_alarm:    {alias: "Local:2:O.Data.3"}
+
+beckhoff:                      # linked at the TwinCAT process image
+  pressure_ok:         {address: "%I*"}
+  gate_valve_closed:   {address: "%I*"}
+  beam_shutter_permit: {address: "%Q*"}
+  pump_start_cmd:      {address: "%Q*"}
+
+iec:                           # 61131 located variables (matiec-checkable)
+  pressure_ok:         {address: "%IX8.0"}
+  gate_valve_closed:   {address: "%IX8.1"}
+  beam_shutter_permit: {address: "%QX4.0"}

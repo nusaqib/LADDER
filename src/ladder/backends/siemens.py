@@ -79,7 +79,11 @@ class SiemensBackend(Backend):
     target = "TIA Portal V21 (Openness)"
 
     def emit(self, project: Project, lowered: dict[str, LoweredProgram],
-             outdir: Path) -> list[Path]:
+             outdir: Path, iomap=None) -> list[Path]:
+        if iomap is not None:
+            from ladder.iomap import apply_addresses
+
+            project = apply_addresses(project, iomap, "siemens")
         hints = self.hints(project)
         fb_prefix = hints.get("fb_prefix", "FB_")
         db_name = hints.get("db_name", f"{project.name}_DB")

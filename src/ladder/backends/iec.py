@@ -95,9 +95,13 @@ class IecBackend(Backend):
     name = "iec"
     description = "Plain IEC 61131-3 ST - vendor-free verification via matiec/IronPLC"
     target = "IEC 61131-3 ed.2 (open toolchains)"
+    _addresses: dict[str, str] = {}
 
     def emit(self, project: Project, lowered: dict[str, LoweredProgram],
-             outdir: Path) -> list[Path]:
+             outdir: Path, iomap=None) -> list[Path]:
+        self._addresses = ({name: b.address for name, b in
+                            iomap.section("iec").items() if b.address}
+                           if iomap is not None else {})
         root = outdir / "iec"
         root.mkdir(parents=True, exist_ok=True)
         path = root / f"{project.name}.st"
@@ -166,7 +170,9 @@ class IecBackend(Backend):
             out.append("    VAR_GLOBAL")
             for t in project.tags:
                 init = fmt_initial(t.initial, t.type) if t.array is None else None
-                out.append(f"        {t.name} : {iec_type_text(t)}"
+                at = self._addresses.get(t.name)
+                located = f" AT {at}" if at else ""  # 61131 located variable
+                out.append(f"        {t.name}{located} : {iec_type_text(t)}"
                            + (f" := {init}" if init is not None else "") + ";")
             out.append("    END_VAR")
         cyclic = [n for n, lp in lowered.items() if lp.program.execution == "cyclic"]

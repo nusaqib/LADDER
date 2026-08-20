@@ -43,8 +43,10 @@ def _iso_duration(ms: int) -> str:
 
 def _variable_xml(name: str, type_: str, initial: str | None,
                   comment: str | None, indent: str,
-                  array: int | None = None) -> list[str]:
-    out = [f"{indent}<variable name={quoteattr(name)}>"]
+                  array: int | None = None,
+                  address: str | None = None) -> list[str]:
+    addr = f" address={quoteattr(address)}" if address else ""
+    out = [f"{indent}<variable name={quoteattr(name)}{addr}>"]
     out.append(f"{indent}  {_type_xml(type_, array)}")
     if initial is not None:
         out.append(f"{indent}  <initialValue><simpleValue value={quoteattr(initial)}/></initialValue>")
@@ -55,11 +57,12 @@ def _variable_xml(name: str, type_: str, initial: str | None,
     return out
 
 
-def _tag_variable_xml(t: Tag, indent: str) -> list[str]:
+def _tag_variable_xml(t: Tag, indent: str, address: str | None = None) -> list[str]:
     from ladder.backends.common import fmt_initial
 
     init = fmt_initial(t.initial, t.type) if t.array is None else None
-    return _variable_xml(t.name, t.type, init, t.comment, indent, array=t.array)
+    return _variable_xml(t.name, t.type, init, t.comment, indent,
+                         array=t.array, address=address)
 
 
 @register
@@ -69,14 +72,19 @@ class PlcopenBackend(Backend):
     target = "PLCopen TC6 XML 2.01"
 
     def emit(self, project: Project, lowered: dict[str, LoweredProgram],
-             outdir: Path) -> list[Path]:
+             outdir: Path, iomap=None) -> list[Path]:
+        addresses = ({name: b.address for name, b in
+                      iomap.section("plcopen").items() if b.address}
+                     if iomap is not None else {})
         root = outdir / "plcopen"
         root.mkdir(parents=True, exist_ok=True)
         path = root / f"{project.name}.xml"
-        path.write_text(self._render(project, lowered), encoding="utf-8")
+        path.write_text(self._render(project, lowered, addresses), encoding="utf-8")
         return [path]
 
-    def _render(self, project: Project, lowered: dict[str, LoweredProgram]) -> str:
+    def _render(self, project: Project, lowered: dict[str, LoweredProgram],
+                addresses: dict[str, str] | None = None) -> str:
+        addresses = addresses or {}
         d = Iec61131Dialect()
         stamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         x: list[str] = []
@@ -129,7 +137,8 @@ class PlcopenBackend(Backend):
         if project.tags:
             x.append("          <globalVars>")
             for t in project.tags:
-                x.extend(_tag_variable_xml(t, "            "))
+                x.extend(_tag_variable_xml(t, "            ",
+                                           address=addresses.get(t.name)))
             x.append("          </globalVars>")
         x.append("        </resource>")
         x.append("      </configuration>")

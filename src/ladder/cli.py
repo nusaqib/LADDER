@@ -42,14 +42,29 @@ def cmd_validate(args) -> int:
     return 1
 
 
+def _load_iomap(args, project):
+    if not getattr(args, "iomap", None):
+        return None
+    from ladder.iomap import load_iomap, validate_iomap
+
+    iomap = load_iomap(args.iomap)
+    problems = validate_iomap(project, iomap)
+    if problems:
+        for p in problems:
+            print(f"  iomap: {p}", file=sys.stderr)
+        raise SystemExit(1)
+    return iomap
+
+
 def cmd_build(args) -> int:
     project = _load_validated(args.ir)
+    iomap = _load_iomap(args, project)
     lowered = lower_project(project)
     targets = sorted(registry) if args.targets == "all" else args.targets.split(",")
     outdir = Path(args.out)
     for t in targets:
         backend = get_backend(t.strip())
-        files = backend.emit(project, lowered, outdir)
+        files = backend.emit(project, lowered, outdir, iomap=iomap)
         print(f"[{backend.name}] {backend.target}")
         for f in files:
             print(f"  {f}")
@@ -60,13 +75,14 @@ def cmd_verify(args) -> int:
     from ladder.verify import verify_targets
 
     project = _load_validated(args.ir)
+    iomap = _load_iomap(args, project)
     lowered = lower_project(project)
     targets = sorted(registry) if args.targets == "all" else args.targets.split(",")
     targets = [t.strip() for t in targets]
     outdir = Path(args.out)
     for t in targets:
         if t in registry:  # 'smv' is a checker, not a backend
-            get_backend(t).emit(project, lowered, outdir)
+            get_backend(t).emit(project, lowered, outdir, iomap=iomap)
     results = verify_targets(project, outdir, targets)
     failed = False
     for r in results:
@@ -256,6 +272,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("-t", "--targets", default="all",
                    help="comma-separated backends, or 'all' (default)")
     p.add_argument("-o", "--out", default="out", help="output directory (default: out)")
+    p.add_argument("--iomap", default=None,
+                   help="IO map YAML binding IO tags to vendor addresses/aliases")
     p.set_defaults(fn=cmd_build)
 
     p = sub.add_parser("verify", help="build then check artifacts with available tools "
@@ -264,6 +282,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("-t", "--targets", default="iec",
                    help="comma-separated backends, or 'all' (default: iec)")
     p.add_argument("-o", "--out", default="out")
+    p.add_argument("--iomap", default=None,
+                   help="IO map YAML binding IO tags to vendor addresses/aliases")
     p.set_defaults(fn=cmd_verify)
 
     p = sub.add_parser("schema", help="export the IR JSON Schema (the LLM contract)")

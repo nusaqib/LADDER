@@ -61,3 +61,4 @@ jobs:
           MATIEC_BIN: /home/runner/matiec/iec2c
           MATIEC_LIB: /home/runner/matiec/lib
         run: ladder verify examples/vacuum_interlock.yaml -t iec -o out
+             --iomap examples/vacuum_interlock.iomap.yaml
