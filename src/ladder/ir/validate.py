@@ -14,6 +14,15 @@ Checks:
   V07 state machine: initial/goto states exist, codes unique
   V08 periodic programs declare an interval
   V09 pattern elements must be expanded before validation
+
+lint_project() adds non-fatal warnings on top:
+  W01 output tag never written by any program
+  W02 tag written by more than one program (scan-order hazard)
+  W03 input tag never read
+  W04 state machine trap state (no outgoing transitions)
+  W05 unreachable state (not initial, no incoming transition)
+Usage lint (W01-W03) is suppressed when the project contains raw `st`
+elements - their reads/writes are opaque, so absence is not evidence.
 """
 
 from __future__ import annotations
@@ -207,6 +216,82 @@ def _validate_program(project: Project, prog: Program, res: ValidationResult) ->
                     "via load_project (or call ladder.patterns.expand_project)")
         elif isinstance(el, RawStEl):
             pass  # escape hatch: backends lint lightly
+
+def lint_project(project: Project) -> list[Issue]:
+    """Non-fatal warnings: unused/multiply-written tags, SM reachability."""
+    warns: list[Issue] = []
+    reads: set[str] = set()
+    writes: dict[str, set[str]] = {}  # tag -> programs writing it
+    opaque = False
+
+    def add_reads(c: Cond) -> None:
+        try:
+            reads.update(r.root for r in X.refs(compile_cond(c)))
+        except X.ExprError:
+            pass  # V03 already reports it
+
+    def add_write(name: str, prog: str) -> None:
+        writes.setdefault(name.split(".")[0], set()).add(prog)
+
+    for prog in project.programs:
+        for el in prog.logic:
+            if isinstance(el, AssignEl):
+                add_reads(el.value)
+                add_write(el.target, prog.name)
+            elif isinstance(el, InterlockEl):
+                add_reads(el.permissives)
+                add_write(el.output, prog.name)
+                if el.reset:
+                    reads.add(el.reset.signal.split(".")[0])
+            elif isinstance(el, AlarmEl):
+                add_reads(el.condition)
+                add_write(el.output, prog.name)
+                if el.ack:
+                    reads.add(el.ack.split(".")[0])
+            elif isinstance(el, TimerEl):
+                add_reads(el.input)
+                for t in (el.done, el.elapsed):
+                    if t:
+                        add_write(t, prog.name)
+            elif isinstance(el, StateMachineEl):
+                reads.add(el.state_tag.split(".")[0])
+                add_write(el.state_tag, prog.name)
+                for st in el.states:
+                    for act in st.do:
+                        add_reads(act.value)
+                        add_write(act.target, prog.name)
+                    for tr in st.transitions:
+                        add_reads(tr.when)
+                _lint_state_machine(el, f"programs/{prog.name}/{el.id}", warns)
+            elif isinstance(el, RawStEl):
+                opaque = True
+
+    if not opaque:
+        for tag in project.tags:
+            if tag.direction == "output" and tag.name not in writes:
+                warns.append(Issue("W01", f"tags/{tag.name}",
+                                   "output is never written by any program"))
+            elif tag.direction == "input" and tag.name not in reads:
+                warns.append(Issue("W03", f"tags/{tag.name}",
+                                   "input is never read"))
+    for name, progs in writes.items():
+        if len(progs) > 1:
+            warns.append(Issue("W02", f"tags/{name}",
+                               f"written by multiple programs ({', '.join(sorted(progs))}) "
+                               "- scan-order hazard"))
+    return warns
+
+
+def _lint_state_machine(el: StateMachineEl, w: str, warns: list[Issue]) -> None:
+    incoming = {tr.goto for st in el.states for tr in st.transitions}
+    for st in el.states:
+        if not st.transitions:
+            warns.append(Issue("W04", f"{w}/{st.name}",
+                               "trap state: no outgoing transitions"))
+        if st.name != el.initial and st.name not in incoming:
+            warns.append(Issue("W05", f"{w}/{st.name}",
+                               "unreachable: not initial and no transition targets it"))
+
 
 def _validate_state_machine(el: StateMachineEl, w: str, lookup, check_read,
                             check_write, res: ValidationResult) -> None:

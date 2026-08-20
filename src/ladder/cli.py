@@ -26,8 +26,12 @@ def _load_validated(path: str):
 
 
 def cmd_validate(args) -> int:
+    from ladder.ir.validate import lint_project
+
     project = load_project(args.ir)
     res = validate_project(project)
+    for warn in lint_project(project):
+        print(f"  {warn}")
     if res.ok:
         print(f"OK: {args.ir} - {project.name} "
               f"({len(project.tags)} tags, {len(project.programs)} program(s))")
@@ -74,6 +78,20 @@ def cmd_schema(args) -> int:
     if args.out:
         Path(args.out).write_text(text + "\n", encoding="utf-8")
         print(f"wrote {args.out}")
+    else:
+        print(text)
+    return 0
+
+
+def cmd_prompt(args) -> int:
+    from ladder.promptgen import build_prompt
+
+    src = Path(args.requirement)
+    requirement = src.read_text(encoding="utf-8") if src.is_file() else args.requirement
+    text = build_prompt(requirement)
+    if args.out:
+        Path(args.out).write_text(text, encoding="utf-8")
+        print(f"wrote {args.out} ({len(text)} chars) - paste into any LLM")
     else:
         print(text)
     return 0
@@ -146,6 +164,12 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("schema", help="export the IR JSON Schema (the LLM contract)")
     p.add_argument("-o", "--out", default=None)
     p.set_defaults(fn=cmd_schema)
+
+    p = sub.add_parser("prompt", help="build a model-agnostic IR-generation prompt "
+                                      "bundle (schema + rules + patterns) for any LLM")
+    p.add_argument("requirement", help="requirement text, or a path to a text file")
+    p.add_argument("-o", "--out", default=None, help="write to file (default: stdout)")
+    p.set_defaults(fn=cmd_prompt)
 
     p = sub.add_parser("adopt", help="reverse adoption: vendor project spec -> IR "
                                      "(siemens: Export-TiaToSpec folder)")
