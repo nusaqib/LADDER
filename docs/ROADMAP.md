@@ -73,7 +73,12 @@ without any vendor software.
   `l5x` lib / blark for TwinCAT), so existing plants can be lifted into LADDER.
 - Round-trip tests: IR → vendor → IR is stable.
 
-### M3 — Pattern library + richer IR (target: Q1 2027)
+### M3 — Pattern library + richer IR (target: Q1 2027) — invocation shipped early
+
+Done 2026-08-20: IR-level `element: pattern` with expansion before
+validation (V09 guard); built-ins `motor_starter`, `valve_with_feedback`;
+`examples/pump_skid.yaml`. Remaining: mine the reference programs, richer
+IR (UDTs, PID, motion, alarm groups), IO-mapping layer.
 
 *Shrink the LLM's job from "write the IR" to "pick patterns, fill parameters".*
 
@@ -86,7 +91,12 @@ without any vendor software.
 - Separate IO-mapping document (signal list → vendor addresses) keeping the
   IR hardware-free.
 
-### M4 — Verification & simulation (target: Q1–Q2 2027)
+### M4 — Verification & simulation (target: Q1–Q2 2027) — core shipped early
+
+Done 2026-08-20: scan-based simulator (`ladder.sim`) with real TON/TOF/TP
+timing and scenario tests pinning interlock/alarm/state-machine semantics;
+static lint W01–W05 (unused tags, multi-writer hazards, SM reachability).
+Remaining: richer property checks, formal path (SMV/nuXmv).
 
 *The reason the IR exists: checks that are impossible on raw vendor code.*
 
