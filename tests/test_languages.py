@@ -103,7 +103,9 @@ def test_iec_backend_renders_il(project, tmp_path):
     assert "OR(" in runtime or "OR " in runtime
     assert "ST motor_run" in runtime
     assert ":= " not in runtime.split("CAL")[0]   # no ST assignments before the call
-    assert "CAL T_warmup_t(IN := T_warmup_t_in, PT := T#3s)" in runtime
+    # formal FB call: '(' ends the line, one parameter per line (IEC B.2)
+    assert "CAL T_warmup_t(" in runtime
+    assert "IN := T_warmup_t_in," in runtime and "PT := T#3s" in runtime
     assert "T_warmup_t_in : BOOL;" in runtime     # synthesized IL temporary
     # ladder/fbd/sfc programs fall back to ST in the textual backend, with a note
     assert "language 'ladder' has no IEC textual form" in st

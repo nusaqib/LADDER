@@ -121,7 +121,11 @@ class IlRenderer:
                     self.extra_bools.append(arg)
                 out += [*self.load(s.input), f"ST {arg}"]
             preset = X.format_time_ms(s.preset_ms)
-            out.append(f"CAL {s.instance}(IN := {arg}, PT := {preset})")
+            # formal FB call: '(' must end the line, one parameter per line
+            out += [f"CAL {s.instance}(",
+                    f"    IN := {arg},",
+                    f"    PT := {preset}",
+                    ")"]
             return out
         if isinstance(s, SIf):
             return self._if(s)

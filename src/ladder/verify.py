@@ -50,7 +50,8 @@ def verify_iec(project: Project, outdir: Path) -> VerifyResult:
         code, output = _run([bin_, "-I", lib, "-T", tmp, str(st)])
     if code == 0:
         return VerifyResult("iec", "pass", f"iec2c accepted {st.name}")
-    return VerifyResult("iec", "fail", output.splitlines()[-1] if output else f"iec2c exit {code}")
+    detail = "\n".join(output.splitlines()[-10:]) if output else f"iec2c exit {code}"
+    return VerifyResult("iec", "fail", detail)
 
 
 def verify_siemens(project: Project, outdir: Path) -> VerifyResult:
