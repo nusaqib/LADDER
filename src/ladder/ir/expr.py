@@ -68,7 +68,17 @@ class Bin:
     right: "Expr"
 
 
-Expr = Union[Lit, Ref, Un, Bin]
+@dataclass(frozen=True)
+class Conv:
+    """Explicit type conversion, e.g. INT_TO_REAL. Produced by lowering
+    (never by the parser); dialects that convert implicitly may drop it."""
+
+    frm: str  # source type, e.g. 'INT'
+    to: str  # target type, e.g. 'REAL'
+    x: "Expr"
+
+
+Expr = Union[Lit, Ref, Un, Bin, Conv]
 
 BOOL_OPS = {"AND", "OR", "XOR"}
 CMP_OPS = {"=", "<>", "<", "<=", ">", ">="}
@@ -267,7 +277,7 @@ def refs(e: Expr) -> Iterator[Ref]:
     """Yield every Ref in an expression tree."""
     if isinstance(e, Ref):
         yield e
-    elif isinstance(e, Un):
+    elif isinstance(e, (Un, Conv)):
         yield from refs(e.x)
     elif isinstance(e, Bin):
         yield from refs(e.left)

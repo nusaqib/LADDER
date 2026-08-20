@@ -126,6 +126,49 @@ def cmd_generate(args) -> int:
     return 0
 
 
+def cmd_bench(args) -> int:
+    import json as _json
+    import os
+
+    from ladder.generate import generate
+
+    cmd = args.cmd or os.environ.get("LADDER_LLM_CMD")
+    if not cmd:
+        print("no LLM command: pass --cmd or set LADDER_LLM_CMD", file=sys.stderr)
+        return 2
+    bench_dir = Path(args.dir)
+    tasks = sorted(p for p in bench_dir.iterdir()
+                   if p.is_dir() and (p / "requirement.md").exists())
+    if args.tasks:
+        wanted = set(args.tasks.split(","))
+        tasks = [t for t in tasks if t.name in wanted]
+    if not tasks:
+        print(f"no tasks found under {bench_dir}", file=sys.stderr)
+        return 2
+    results = []
+    for task in tasks:
+        requirement = (task / "requirement.md").read_text(encoding="utf-8")
+        try:
+            r = generate(requirement, cmd, accept=task / "scenarios.yaml",
+                         max_iters=args.max_iters)
+            row = {"task": task.name, "passed": r.ok, "iterations": r.iterations,
+                   "problems_last": r.attempts[-1].problems if r.attempts else []}
+        except RuntimeError as e:
+            row = {"task": task.name, "passed": False, "iterations": 0,
+                   "problems_last": [str(e)]}
+        results.append(row)
+        status = "PASS" if row["passed"] else "FAIL"
+        print(f"{status} {task.name} ({row['iterations']} attempt(s))")
+    passed = sum(r["passed"] for r in results)
+    print(f"\n{passed}/{len(results)} tasks passed - cmd: {cmd}")
+    if args.out:
+        Path(args.out).write_text(_json.dumps(
+            {"cmd": cmd, "max_iters": args.max_iters, "results": results},
+            indent=2) + "\n", encoding="utf-8")
+        print(f"wrote {args.out}")
+    return 0
+
+
 def cmd_prompt(args) -> int:
     from ladder.promptgen import build_prompt
 
@@ -226,6 +269,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-iters", type=int, default=3)
     p.add_argument("-o", "--out", default="generated.yaml")
     p.set_defaults(fn=cmd_generate)
+
+    p = sub.add_parser("bench", help="score an LLM across the benchmark tasks "
+                                     "(generate + scenario acceptance per task)")
+    p.add_argument("--cmd", default=None, help="LLM shell command (default: env LADDER_LLM_CMD)")
+    p.add_argument("--dir", default="benchmarks", help="benchmark root (default: benchmarks)")
+    p.add_argument("--tasks", default=None, help="comma-separated task names (default: all)")
+    p.add_argument("--max-iters", type=int, default=3)
+    p.add_argument("-o", "--out", default=None, help="write results JSON")
+    p.set_defaults(fn=cmd_bench)
 
     p = sub.add_parser("prompt", help="build a model-agnostic IR-generation prompt "
                                       "bundle (schema + rules + patterns) for any LLM")

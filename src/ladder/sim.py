@@ -127,6 +127,9 @@ def _eval(e: X.Expr, scope: _Scope) -> Any:
         return e.value
     if isinstance(e, X.Ref):
         return scope.read(e)
+    if isinstance(e, X.Conv):
+        v = _eval(e.x, scope)
+        return float(v) if e.to in ("REAL", "LREAL") else int(v)
     if isinstance(e, X.Un):
         v = _eval(e.x, scope)
         return (not v) if e.op == "NOT" else -v

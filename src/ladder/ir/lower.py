@@ -30,6 +30,7 @@ from ladder.ir.model import (
     Program,
     Project,
     RawStEl,
+    ScaleEl,
     StateMachineEl,
     TimerEl,
     compile_cond,
@@ -118,8 +119,10 @@ def _rising_edge(signal: str, mem_name: str, synth: list[SynthVar]) -> X.Expr:
 def lower_program(project: Project, prog: Program) -> LoweredProgram:
     stmts: list[Stmt] = []
     synth: list[SynthVar] = []
+    types = {t.name: t.type.upper() for t in project.tags}
+    types.update({t.name: t.type.upper() for t in prog.variables})
     for el in prog.logic:
-        stmts.extend(_lower_element(el, synth))
+        stmts.extend(_lower_element(el, synth, types))
     return LoweredProgram(prog, stmts, synth)
 
 
@@ -135,7 +138,7 @@ def _header(el, kind: str) -> list[Stmt]:
     return [SComment(label)]
 
 
-def _lower_element(el, synth: list[SynthVar]) -> list[Stmt]:
+def _lower_element(el, synth: list[SynthVar], types: dict[str, str]) -> list[Stmt]:
     if isinstance(el, AssignEl):
         out = _header(el, "assign") if el.description else []
         out.append(SAssign(_ref(el.target), compile_cond(el.value)))
@@ -148,9 +151,35 @@ def _lower_element(el, synth: list[SynthVar]) -> list[Stmt]:
         return _lower_timer(el, synth)
     if isinstance(el, StateMachineEl):
         return _lower_state_machine(el)
+    if isinstance(el, ScaleEl):
+        return _lower_scale(el, types)
     if isinstance(el, RawStEl):
         return [*_header(el, "st"), SRaw(el.code)]
-    raise TypeError(f"unknown element: {el!r}")
+    raise TypeError(f"unknown element: {el!r} (patterns must be expanded first)")
+
+
+def _lower_scale(el: ScaleEl, types: dict[str, str]) -> list[Stmt]:
+    out = _header(el, "scale")
+    k = (el.eu_max - el.eu_min) / (el.raw_max - el.raw_min)
+    b = el.eu_min - el.raw_min * k
+    src: X.Expr = _ref(el.input)
+    src_type = types.get(el.input, "INT")
+    if src_type not in ("REAL", "LREAL"):
+        src = X.Conv(src_type, "REAL", src)
+    expr: X.Expr = X.Bin("*", src, X.Lit(k, "real"))
+    if b != 0.0:
+        expr = X.Bin("+", expr, X.Lit(b, "real"))
+    output = _ref(el.output)
+    out.append(SAssign(output, expr))
+    if el.clamp:
+        lo, hi = sorted((el.eu_min, el.eu_max))
+        out.append(SIf(
+            X.Bin(">", output, X.Lit(hi, "real")),
+            [SAssign(output, X.Lit(hi, "real"))],
+            elifs=[(X.Bin("<", output, X.Lit(lo, "real")),
+                    [SAssign(output, X.Lit(lo, "real"))])],
+        ))
+    return out
 
 
 def _lower_interlock(el: InterlockEl, synth: list[SynthVar]) -> list[Stmt]:

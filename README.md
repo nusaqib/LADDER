@@ -98,7 +98,8 @@ structure:
 | `ladder prompt` — model-agnostic generation bundle for any LLM | ✅ schema + rules + patterns in one paste-able doc |
 | `ladder test` — declarative acceptance scenarios in the simulator | ✅ [docs/SCENARIOS.md](docs/SCENARIOS.md) |
 | `ladder generate` — full loop: any LLM → validate → feedback → accept | ✅ provider-neutral (stdin/stdout shell contract) |
-| [Benchmark](benchmarks/README.md): spec → IR tasks, simulation-scored | ✅ 3 tasks with CI-verified references |
+| [Benchmark](benchmarks/README.md): spec → IR tasks, simulation-scored | ✅ 3 tasks with CI-verified references; `ladder bench` scores any model |
+| `scale` element — analog raw→EU scaling with per-dialect conversion | ✅ |
 | Studio 5000 L5X import validation | ⬜ manual: open `out\rockwell\*.L5X` in v36 (SDK 2.x for automation) |
 | Vendor engines (structure adoption from reference programs) | ⬜ next — see [docs/ROADMAP.md](docs/ROADMAP.md) |
 | Pattern library from reference programs | ⬜ seeded |

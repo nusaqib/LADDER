@@ -206,6 +206,33 @@ class StateMachineEl(BaseModel):
     description: Optional[str] = None
 
 
+class ScaleEl(BaseModel):
+    """Linear analog scaling: raw counts -> engineering units (REAL).
+
+    output := input * k + b with k/b precomputed from the two ranges;
+    clamped to the EU range by default.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    element: Literal["scale"]
+    id: str
+    input: str = Field(description="Raw tag (INT/DINT/REAL), e.g. ADC counts.")
+    output: str = Field(description="REAL/LREAL tag receiving engineering units.")
+    raw_min: int = 0
+    raw_max: int
+    eu_min: float = 0.0
+    eu_max: float
+    clamp: bool = True
+    description: Optional[str] = None
+
+    @field_validator("raw_max")
+    @classmethod
+    def _nonzero_span(cls, v: int, info) -> int:
+        if v == info.data.get("raw_min"):
+            raise ValueError("raw_max must differ from raw_min")
+        return v
+
+
 class PatternEl(BaseModel):
     """Invocation of a library pattern - expanded into real elements before
     validation (see ladder.patterns.expand_project). This is the intended
@@ -234,7 +261,8 @@ class RawStEl(BaseModel):
 
 
 LogicElement = Annotated[
-    Union[AssignEl, InterlockEl, AlarmEl, TimerEl, StateMachineEl, PatternEl, RawStEl],
+    Union[AssignEl, InterlockEl, AlarmEl, TimerEl, StateMachineEl, ScaleEl,
+          PatternEl, RawStEl],
     Field(discriminator="element"),
 ]
 

@@ -53,6 +53,8 @@ and plain IEC 61131-3 artifacts. You never write vendor syntax.
 - `timer` - standalone TON/TOF/TP with `preset`, optional `done`/`elapsed`.
 - `state_machine` - named states with per-scan `do` assigns and ordered
   `transitions` (first match wins); lowered to a CASE statement.
+- `scale` - linear analog scaling raw counts -> engineering units (REAL
+  output), with raw/EU ranges and clamping.
 - `assign` - unconditional `target := value` every scan.
 - `pattern` - invoke a library pattern by `ref` with `params` (see below).
 - `st` - raw neutral structured text; escape hatch only.

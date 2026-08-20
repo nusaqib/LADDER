@@ -21,6 +21,7 @@ lint_project() adds non-fatal warnings on top:
   W03 input tag never read
   W04 state machine trap state (no outgoing transitions)
   W05 unreachable state (not initial, no incoming transition)
+  W06 tag written by multiple elements in one program (last writer wins)
 Usage lint (W01-W03) is suppressed when the project contains raw `st`
 elements - their reads/writes are opaque, so absence is not evidence.
 """
@@ -40,6 +41,7 @@ from ladder.ir.model import (
     Program,
     Project,
     RawStEl,
+    ScaleEl,
     StateMachineEl,
     TimerEl,
     compile_cond,
@@ -211,6 +213,18 @@ def _validate_program(project: Project, prog: Program, res: ValidationResult) ->
                 check_write(el.elapsed, w)
         elif isinstance(el, StateMachineEl):
             _validate_state_machine(el, w, lookup, check_read, check_write, res)
+        elif isinstance(el, ScaleEl):
+            src = lookup(el.input)
+            if src is None:
+                res.add("V03", w, f"unknown scale input {el.input!r}")
+            elif src.type.upper() not in ("INT", "DINT", "REAL", "LREAL"):
+                res.add("V06", w, f"scale input {el.input!r} must be "
+                        f"INT/DINT/REAL, is {src.type}")
+            check_write(el.output, w)
+            dst = lookup(el.output)
+            if dst is not None and dst.type.upper() not in ("REAL", "LREAL"):
+                res.add("V06", w, f"scale output {el.output!r} must be "
+                        f"REAL or LREAL, is {dst.type}")
         elif isinstance(el, PatternEl):
             res.add("V09", w, f"pattern {el.ref!r} not expanded - load the IR "
                     "via load_project (or call ladder.patterns.expand_project)")
@@ -263,8 +277,25 @@ def lint_project(project: Project) -> list[Issue]:
                     for tr in st.transitions:
                         add_reads(tr.when)
                 _lint_state_machine(el, f"programs/{prog.name}/{el.id}", warns)
+            elif isinstance(el, ScaleEl):
+                reads.add(el.input.split(".")[0])
+                add_write(el.output, prog.name)
             elif isinstance(el, RawStEl):
                 opaque = True
+
+    # W06: two elements in the same program writing the same tag fight each
+    # other every scan (last writer wins) - almost always a mistake.
+    for prog in project.programs:
+        writers: dict[str, list[str]] = {}
+        for el in prog.logic:
+            el_id = getattr(el, "id", None) or el.element
+            for t in _element_writes(el):
+                writers.setdefault(t.split(".")[0], []).append(el_id)
+        for tag_name, els in writers.items():
+            if len(els) > 1:
+                warns.append(Issue("W06", f"programs/{prog.name}/{tag_name}",
+                                   f"written by multiple elements ({', '.join(els)}) "
+                                   "- last writer wins every scan"))
 
     if not opaque:
         for tag in project.tags:
@@ -280,6 +311,21 @@ def lint_project(project: Project) -> list[Issue]:
                                f"written by multiple programs ({', '.join(sorted(progs))}) "
                                "- scan-order hazard"))
     return warns
+
+
+def _element_writes(el) -> list[str]:
+    """Tags an element writes (state machines count as one writer)."""
+    if isinstance(el, AssignEl):
+        return [el.target]
+    if isinstance(el, (InterlockEl, AlarmEl)):
+        return [el.output]
+    if isinstance(el, TimerEl):
+        return [t for t in (el.done, el.elapsed) if t]
+    if isinstance(el, ScaleEl):
+        return [el.output]
+    if isinstance(el, StateMachineEl):
+        return list({act.target for st in el.states for act in st.do} | {el.state_tag})
+    return []
 
 
 def _lint_state_machine(el: StateMachineEl, w: str, warns: list[Issue]) -> None:

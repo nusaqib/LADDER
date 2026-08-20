@@ -137,6 +137,24 @@ condition has gone.
 
 Lowered to a CASE on `state_tag` with an IF/ELSIF transition chain.
 
+### scale — analog scaling
+
+```yaml
+- element: scale
+  id: SC_level
+  input: level_raw        # INT/DINT/REAL raw value (e.g. ADC counts)
+  output: level_pct       # REAL/LREAL engineering units (V06)
+  raw_min: 0
+  raw_max: 27648          # vendor ADC ranges differ - always explicit
+  eu_min: 0.0
+  eu_max: 100.0
+  clamp: true             # default: clamp output to the EU range
+```
+
+Lowered to a precomputed multiply-add (`output := INT_TO_REAL(input) * k + b`)
+plus clamp; dialects that convert numeric types implicitly (Logix ST) drop
+the explicit conversion.
+
 ### pattern — library invocation (the LLM fast path)
 
 ```yaml

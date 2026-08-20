@@ -109,7 +109,13 @@ class STDialect:
             s = (f"{self.expr(e.left, ctx, prec)} {e.op} "
                  f"{self.expr(e.right, ctx, prec + 1)}")
             return f"({s})" if parent_prec > prec else s
+        if isinstance(e, X.Conv):
+            return self.convert(e, ctx)
         raise TypeError(f"unknown expression node: {e!r}")
+
+    def convert(self, e: X.Conv, ctx: RenderContext) -> str:
+        """Explicit IEC conversion function, e.g. INT_TO_REAL(x)."""
+        return f"{e.frm}_TO_{e.to}({self.expr(e.x, ctx)})"
 
     # ---- statements --------------------------------------------------------
 
@@ -226,3 +232,7 @@ class RockwellStDialect(STDialect):
         if lit.kind == "bool":
             return "1" if lit.value else "0"  # Logix ST has no TRUE/FALSE literals pre-v32; 1/0 is always safe
         return super().fmt_lit(lit)
+
+    def convert(self, e: X.Conv, ctx: RenderContext) -> str:
+        # Logix ST converts numeric types implicitly in expressions
+        return f"({self.expr(e.x, ctx)})"
