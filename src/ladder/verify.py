@@ -74,9 +74,36 @@ def verify_siemens(project: Project, outdir: Path) -> VerifyResult:
     return VerifyResult("siemens", "fail", tail or f"build.ps1 exit {code} (see build.log)")
 
 
+def verify_smv(project: Project, outdir: Path) -> VerifyResult:
+    """Model-check emitted SMV with nuXmv (env NUXMV_BIN or on PATH)."""
+    from ladder.model_check import emit_project
+
+    bin_ = os.environ.get("NUXMV_BIN") or shutil.which("nuxmv") or shutil.which("nuXmv")
+    if not bin_:
+        return VerifyResult("smv", "skip", "nuXmv not found (set NUXMV_BIN)")
+    files, skipped = emit_project(project, outdir / "smv")
+    if not files:
+        return VerifyResult("smv", "skip", "; ".join(skipped) or "nothing model-checkable")
+    failures = []
+    for f in files:
+        code, output = _run([bin_, "-dcx", str(f)])
+        if code != 0:
+            return VerifyResult("smv", "fail", f"nuXmv error on {f.name}: "
+                                f"{output.splitlines()[-1] if output else code}")
+        failures += [line.strip() for line in output.splitlines()
+                     if "is false" in line]
+    if failures:
+        return VerifyResult("smv", "fail", "; ".join(failures[:3]))
+    note = f"{len(files)} model(s), all properties proved"
+    if skipped:
+        note += f" ({len(skipped)} program(s) skipped)"
+    return VerifyResult("smv", "pass", note)
+
+
 CHECKERS = {
     "iec": verify_iec,
     "siemens": verify_siemens,
+    "smv": verify_smv,
 }
 
 

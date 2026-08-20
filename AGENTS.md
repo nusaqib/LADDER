@@ -69,6 +69,16 @@ Siemens TIA V21 (SCL + Openness build script), Rockwell Studio 5000 V36
 
 `out/` is generated and git-ignored; never hand-edit artifacts there.
 
+## Model checking (nuXmv)
+
+`ladder model <ir>` emits SMV per program with auto fail-safe theorems
+(interlock `permit -> permissives`); `ladder verify -t smv` runs nuXmv when
+`NUXMV_BIN` is set (or nuxmv is on PATH). Windows binary:
+https://es-static.fbk.eu/tools/nuxmv/downloads/nuXmv-2.0.0-win64.tar.gz
+(extract anywhere, point NUXMV_BIN at bin/nuXmv.exe; do NOT commit it).
+Timers are over-approximated (done may rise any scan while enabled), so
+proofs hold for every preset and scan rate.
+
 ## Generating IR (for any model)
 
 1. Get the contract: `ladder schema -o ir-schema.json` and

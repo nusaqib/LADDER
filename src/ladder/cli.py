@@ -62,10 +62,12 @@ def cmd_verify(args) -> int:
     project = _load_validated(args.ir)
     lowered = lower_project(project)
     targets = sorted(registry) if args.targets == "all" else args.targets.split(",")
+    targets = [t.strip() for t in targets]
     outdir = Path(args.out)
     for t in targets:
-        get_backend(t.strip()).emit(project, lowered, outdir)
-    results = verify_targets(project, outdir, [t.strip() for t in targets])
+        if t in registry:  # 'smv' is a checker, not a backend
+            get_backend(t).emit(project, lowered, outdir)
+    results = verify_targets(project, outdir, targets)
     failed = False
     for r in results:
         print(r)
@@ -123,6 +125,23 @@ def cmd_generate(args) -> int:
     print(f"wrote {args.out} (accepted after {result.iterations} attempt(s))")
     for w in lint_report(result.project):
         print(f"  {w}")
+    return 0
+
+
+def cmd_model(args) -> int:
+    from ladder.model_check import emit_project
+
+    project = _load_validated(args.ir)
+    files, skipped = emit_project(project, Path(args.out) / "smv")
+    for f in files:
+        print(f"  {f}")
+    for note in skipped:
+        print(f"  skipped {note}")
+    if not files:
+        print("no model-checkable programs", file=sys.stderr)
+        return 1
+    print(f"{len(files)} model(s) emitted - check with: nuxmv <file.smv> "
+          "(or ladder verify -t smv with NUXMV_BIN set)")
     return 0
 
 
@@ -269,6 +288,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-iters", type=int, default=3)
     p.add_argument("-o", "--out", default="generated.yaml")
     p.set_defaults(fn=cmd_generate)
+
+    p = sub.add_parser("model", help="emit SMV models + auto fail-safe properties "
+                                     "for nuXmv model checking")
+    p.add_argument("ir")
+    p.add_argument("-o", "--out", default="out")
+    p.set_defaults(fn=cmd_model)
 
     p = sub.add_parser("bench", help="score an LLM across the benchmark tasks "
                                      "(generate + scenario acceptance per task)")

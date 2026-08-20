@@ -95,8 +95,13 @@ IR (UDTs, PID, motion, alarm groups), IO-mapping layer.
 
 Done 2026-08-20: scan-based simulator (`ladder.sim`) with real TON/TOF/TP
 timing and scenario tests pinning interlock/alarm/state-machine semantics;
-static lint W01–W05 (unused tags, multi-writer hazards, SM reachability).
-Remaining: richer property checks, formal path (SMV/nuXmv).
+static lint W01–W06 (unused tags, multi-writer hazards, SM reachability);
+**formal path shipped**: `ladder model` emits SMV (timers soundly
+over-approximated, statement order folded into one TRANS) with an
+auto-generated fail-safe theorem per interlock — nuXmv proved
+`permit -> permissives` on the example and found the counterexample in a
+deliberately bypassed interlock. Remaining: alarm/SM property templates,
+user-supplied LTL specs.
 
 *The reason the IR exists: checks that are impossible on raw vendor code.*
 

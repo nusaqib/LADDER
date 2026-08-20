@@ -100,6 +100,7 @@ structure:
 | `ladder generate` — full loop: any LLM → validate → feedback → accept | ✅ provider-neutral (stdin/stdout shell contract) |
 | [Benchmark](benchmarks/README.md): spec → IR tasks, simulation-scored | ✅ 3 tasks with CI-verified references; `ladder bench` scores any model |
 | `scale` element — analog raw→EU scaling with per-dialect conversion | ✅ |
+| **Formal verification**: `ladder model` → SMV + auto fail-safe theorems, proved by nuXmv | ✅ interlock permits proved safe over *all* timings |
 | Studio 5000 L5X import validation | ⬜ manual: open `out\rockwell\*.L5X` in v36 (SDK 2.x for automation) |
 | Vendor engines (structure adoption from reference programs) | ⬜ next — see [docs/ROADMAP.md](docs/ROADMAP.md) |
 | Pattern library from reference programs | ⬜ seeded |
