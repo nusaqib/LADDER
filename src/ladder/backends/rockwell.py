@@ -25,6 +25,15 @@ from xml.sax.saxutils import quoteattr
 
 from ladder.backends.base import Backend, BackendError, register
 from ladder.backends.dialects import RockwellStDialect
+from ladder.backends.rungs import (
+    CoilAction,
+    MoveAction,
+    Rung,
+    TimerAction,
+    bool_roots_for,
+    push_not_down,
+    to_rungs,
+)
 from ladder.ir import expr as X
 from ladder.ir.lower import LoweredProgram
 from ladder.ir.model import Project, Tag
@@ -38,6 +47,64 @@ _TYPE_MAP = {
 
 def _cdata(text: str) -> str:
     return "<![CDATA[" + text.replace("]]>", "]]]]><![CDATA[>") + "]]>"
+
+
+_RLL_CMP = {"=": "EQU", "<>": "NEQ", "<": "LES", "<=": "LEQ",
+            ">": "GRT", ">=": "GEQ"}
+_TIMER_MEMBERS = {"Q": "DN", "ET": "ACC"}
+
+
+def _rll_name(ref: X.Ref) -> str:
+    head, *rest = ref.path
+    rest = [_TIMER_MEMBERS.get(m, m) for m in rest]
+    return ".".join([head, *rest])
+
+
+def _rll_operand(e: X.Expr) -> str:
+    if isinstance(e, X.Ref):
+        return _rll_name(e)
+    if isinstance(e, X.Lit):
+        if e.kind == "bool":
+            return "1" if e.value else "0"
+        return str(e.value)
+    raise BackendError("rockwell: RLL compare operands must be tags or literals")
+
+
+def _rll_cond(e: X.Expr) -> str:
+    """Rung input instructions for a (NOT-normalized) boolean expression."""
+    if isinstance(e, X.Lit) and e.kind == "bool":
+        return "" if e.value else "AFI()"  # empty = always true
+    if isinstance(e, X.Ref):
+        return f"XIC({_rll_name(e)})"
+    if isinstance(e, X.Un) and e.op == "NOT" and isinstance(e.x, X.Ref):
+        return f"XIO({_rll_name(e.x)})"
+    if isinstance(e, X.Bin):
+        if e.op == "AND":
+            return _rll_cond(e.left) + _rll_cond(e.right)
+        if e.op == "OR":
+            return f"[{_rll_cond(e.left)} ,{_rll_cond(e.right)} ]"
+        cmp_ = _RLL_CMP.get(e.op)
+        if cmp_:
+            return f"{cmp_}({_rll_operand(e.left)},{_rll_operand(e.right)})"
+    raise BackendError(f"rockwell: no RLL form for expression {e!r}")
+
+
+def _rll_rung_text(r: Rung) -> str:
+    cond = _rll_cond(push_not_down(r.cond)) if r.cond is not None else ""
+    a = r.action
+    if isinstance(a, CoilAction):
+        op = {"out": "OTE", "set": "OTL", "reset": "OTU"}[a.mode]
+        act = f"{op}({_rll_name(a.target)})"
+    elif isinstance(a, MoveAction):
+        act = f"MOV({_rll_operand(a.value)},{_rll_name(a.target)})"
+    elif isinstance(a, TimerAction):
+        if a.kind not in ("TON", "TOF"):
+            raise BackendError("rockwell: RLL has no TP instruction; rework "
+                               f"timer {a.instance!r} (e.g. TON + logic)")
+        act = f"{a.kind}({a.instance},?,?)"
+    else:  # pragma: no cover
+        raise BackendError(f"rockwell: unknown rung action {a!r}")
+    return cond + act + ";"
 
 
 def _radix(dtype: str) -> str | None:
@@ -142,7 +209,7 @@ class RockwellBackend(Backend):
         # programs
         x.append("    <Programs>")
         for name, lp in lowered.items():
-            x.extend(self._program_xml(name, lp, d))
+            x.extend(self._program_xml(project, name, lp, d))
         x.append("    </Programs>")
 
         # tasks
@@ -190,8 +257,16 @@ class RockwellBackend(Backend):
         x.append("    </DataTypes>")
         return x
 
-    def _program_xml(self, name: str, lp: LoweredProgram,
+    def _program_xml(self, project: Project, name: str, lp: LoweredProgram,
                      d: RockwellStDialect) -> list[str]:
+        ladder = lp.program.language == "ladder"
+        rungs: list[Rung] = []
+        presets: dict[str, int] = {}
+        if ladder:
+            rungs = to_rungs(lp, bool_roots_for(lp, project))
+            presets = {a.instance: a.preset_ms for r in rungs
+                       if isinstance((a := r.action), TimerAction)}
+
         x = [f'      <Program Name={quoteattr(name)} TestEdits="false" '
              f'MainRoutineName="Main" Disabled="false" UseAsFolder="false">']
         if lp.program.description:
@@ -200,20 +275,54 @@ class RockwellBackend(Backend):
         for t in lp.program.variables:
             x.extend(self._tag_xml(t, "          "))
         for v in lp.synth:
+            if v.kind == "timer" and ladder:
+                # RLL TON/TOF drive native TIMER structures; preset lives
+                # in the tag's PRE member (milliseconds)
+                x.extend(self._timer_tag_xml(v.name, presets.get(v.name, 0),
+                                             v.comment, "          "))
+                continue
             dtype = d.timer_decl_type(v) if v.kind == "timer" else "BOOL"
             x.extend(self._synth_tag_xml(v.name, dtype, v.comment, "          "))
         x.append("        </Tags>")
         x.append("        <Routines>")
-        x.append('          <Routine Name="Main" Type="ST">')
-        x.append("            <STContent>")
-        body = d.body(lp)
-        for i, line in enumerate(body.splitlines()):
-            x.append(f'              <Line Number="{i}">{_cdata(line)}</Line>')
-        x.append("            </STContent>")
+        if ladder:
+            x.append('          <Routine Name="Main" Type="RLL">')
+            x.append("            <RLLContent>")
+            for i, r in enumerate(rungs):
+                x.append(f'              <Rung Number="{i}" Type="N">')
+                if r.comment:
+                    x.append(f"                <Comment>{_cdata(r.comment)}</Comment>")
+                x.append(f"                <Text>{_cdata(_rll_rung_text(r))}</Text>")
+                x.append("              </Rung>")
+            x.append("            </RLLContent>")
+        else:
+            x.append('          <Routine Name="Main" Type="ST">')
+            x.append("            <STContent>")
+            body = d.body(lp)
+            for i, line in enumerate(body.splitlines()):
+                x.append(f'              <Line Number="{i}">{_cdata(line)}</Line>')
+            x.append("            </STContent>")
         x.append("          </Routine>")
         x.append("        </Routines>")
         x.append("      </Program>")
         return x
+
+    def _timer_tag_xml(self, name: str, preset_ms: int, comment: str,
+                       indent: str) -> list[str]:
+        out = [f'{indent}<Tag Name={quoteattr(name)} TagType="Base" '
+               f'DataType="TIMER" Constant="false" ExternalAccess="Read/Write">']
+        if comment:
+            out.append(f"{indent}  <Description>{_cdata(comment)}</Description>")
+        out.append(f'{indent}  <Data Format="Decorated">')
+        out.append(f'{indent}    <Structure DataType="TIMER">')
+        out.append(f'{indent}      <DataValueMember Name="PRE" DataType="DINT" '
+                   f'Radix="Decimal" Value="{preset_ms}"/>')
+        out.append(f'{indent}      <DataValueMember Name="ACC" DataType="DINT" '
+                   f'Radix="Decimal" Value="0"/>')
+        out.append(f'{indent}    </Structure>')
+        out.append(f'{indent}  </Data>')
+        out.append(f"{indent}</Tag>")
+        return out
 
     def _tasks_xml(self, lowered: dict[str, LoweredProgram]) -> list[str]:
         continuous = [n for n, lp in lowered.items() if lp.program.execution == "cyclic"]

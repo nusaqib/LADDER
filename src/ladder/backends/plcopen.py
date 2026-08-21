@@ -119,7 +119,7 @@ class PlcopenBackend(Backend):
             x.append("    <dataTypes/>")
         x.append("    <pous>")
         for name, lp in lowered.items():
-            x.extend(self._pou_xml(name, lp, d))
+            x.extend(self._pou_xml(project, name, lp, d))
         x.append("    </pous>")
         x.append("  </types>")
         x.append("  <instances>")
@@ -147,7 +147,44 @@ class PlcopenBackend(Backend):
         x.append("</project>")
         return "\n".join(x) + "\n"
 
-    def _pou_xml(self, name: str, lp: LoweredProgram, d: Iec61131Dialect) -> list[str]:
+    def _pou_xml(self, project: Project, name: str, lp: LoweredProgram,
+                 d: Iec61131Dialect) -> list[str]:
+        # body first: IL may synthesize temporaries that must be declared
+        lang = lp.program.language
+        extra_bools: list[str] = []
+        body: list[str]
+        if lang == "il":
+            from ladder.backends.il import IlRenderer
+
+            renderer = IlRenderer()
+            body = ['          <IL><xhtml xmlns="http://www.w3.org/1999/xhtml">',
+                    escape(renderer.body(lp)).rstrip(),
+                    "          </xhtml></IL>"]
+            extra_bools = renderer.extra_bools
+        elif lang in ("ladder", "fbd"):
+            from ladder.backends.plcopen_graphic import fbd_body, ld_body
+            from ladder.backends.rungs import bool_roots_for, to_rungs
+
+            rungs = to_rungs(lp, bool_roots_for(lp, project))
+            if lang == "ladder":
+                body = ["          <LD>", *ld_body(rungs), "          </LD>"]
+            else:
+                body = ["          <FBD>", *fbd_body(rungs), "          </FBD>"]
+        elif lang == "sfc":
+            from ladder.backends.plcopen_graphic import sfc_body
+            from ladder.backends.dialects import RenderContext
+            from ladder.ir.model import StateMachineEl
+
+            el = next(e for e in lp.program.logic if isinstance(e, StateMachineEl))
+            ctx = RenderContext.for_program(lp)
+            body = ["          <SFC>",
+                    *sfc_body(el, lambda e: d.expr(e, ctx)),
+                    "          </SFC>"]
+        else:
+            body = ['          <ST><xhtml xmlns="http://www.w3.org/1999/xhtml">',
+                    escape(d.body(lp)).rstrip(),
+                    "          </xhtml></ST>"]
+
         x = [f'      <pou name={quoteattr(name)} pouType="program">']
         x.append("        <interface>")
         x.append("          <localVars>")
@@ -156,12 +193,13 @@ class PlcopenBackend(Backend):
         for v in lp.synth:
             type_ = d.timer_decl_type(v) if v.kind == "timer" else "BOOL"
             x.extend(_variable_xml(v.name, type_, None, v.comment, "            "))
+        for extra in extra_bools:
+            x.extend(_variable_xml(extra, "BOOL", None,
+                                   "IL timer-input temporary", "            "))
         x.append("          </localVars>")
         x.append("        </interface>")
         x.append("        <body>")
-        x.append('          <ST><xhtml xmlns="http://www.w3.org/1999/xhtml">')
-        x.append(escape(d.body(lp)).rstrip())
-        x.append("          </xhtml></ST>")
+        x.extend(body)
         x.append("        </body>")
         if lp.program.description:
             x.append(f'        <documentation><xhtml xmlns="http://www.w3.org/1999/xhtml">'

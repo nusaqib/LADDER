@@ -104,6 +104,7 @@ structure:
 | **IR v0.2**: UDTs + arrays (typed member/index validation V10) | ✅ Siemens global DB **live-compiled 0 errors**; Logix UDT w/ BIT packing; STRUCT/DUT elsewhere |
 | IO maps (`--iomap`): hardware bindings outside the IR | ✅ Siemens addresses, Logix alias tags, TwinCAT/IEC located vars |
 | `alarm_group` — annunciator with common ack, horn, first-out capture | ✅ semantics scenario-pinned; horn/first-out theorems proved by nuXmv |
+| **All five IEC 61131-3 languages** (`language:` per program) | ✅ ST everywhere; IL (matiec-proved); LD → Rockwell RLL + PLCopen; FBD/SFC → PLCopen; tc6-XSD-validated in CI |
 | Studio 5000 L5X import validation | ⬜ manual: open `out\rockwell\*.L5X` in v36 (SDK 2.x for automation) |
 | Vendor engines (structure adoption from reference programs) | ⬜ next — see [docs/ROADMAP.md](docs/ROADMAP.md) |
 | Pattern library from reference programs | ⬜ seeded |

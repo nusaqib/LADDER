@@ -72,3 +72,21 @@ jobs:
           MATIEC_BIN: /home/runner/matiec/iec2c
           MATIEC_LIB: /home/runner/matiec/lib
         run: ladder verify examples/annunciator.yaml -t iec -o out
+
+  # Emitted PLCopen XML (incl. LD/FBD/SFC/IL bodies) must validate against
+  # the official tc6_0201 XSD - the schema every importing tool checks.
+  plcopen-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e .[dev] xmlschema
+      - name: Fetch tc6_xml_v201.xsd
+        run: curl -fsSL -o /tmp/tc6_xml_v201.xsd
+             https://raw.githubusercontent.com/fekaputra/gloze-x/master/tc6_xml_v201.xsd
+      - name: Validate emitted PLCopen XML against the XSD
+        env:
+          TC6_XSD: /tmp/tc6_xml_v201.xsd
+        run: pytest tests/test_plcopen_schema.py -v

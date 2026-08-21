@@ -259,6 +259,18 @@ express:
 | `ladder` / `fbd` | assign (BOOL), interlock, alarm, alarm_group, timer (no `elapsed`) | state_machine, scale, st, non-BOOL assigns |
 | `sfc` | exactly one state_machine | anything else |
 
+Native renderings (everything else falls back to ST with a note):
+
+| language | rendered natively by |
+|---|---|
+| `il` | iec (`.st` file, matiec-checked in CI), plcopen (`<IL>` body) |
+| `ladder` | rockwell (RLL rung routines, native TIMER tags), plcopen (`<LD>` contacts/coils, set/reset via `storage`) |
+| `fbd` | plcopen (`<FBD>` block networks; set/reset rungs fold into the standard latch idiom, later-rung dominant) |
+| `sfc` | plcopen (`<SFC>` steps/transitions; actions also keep `state_tag` truthful) |
+
+Emitted PLCopen XML — including all graphic bodies — validates against the
+official tc6_0201 XSD (checked in CI).
+
 ## Programs
 
 ```yaml

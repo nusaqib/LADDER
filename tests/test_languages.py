@@ -141,3 +141,56 @@ def test_all_backends_emit_language_project(project, tmp_path):
     lowered = lower_project(project)
     for name in ("siemens", "rockwell", "plcopen", "beckhoff", "iec"):
         get_backend(name).emit(project, lowered, tmp_path)
+
+
+# ------------------------------------------------------- graphic bodies
+
+
+def test_rockwell_ladder_program_is_rll(project, tmp_path):
+    get_backend("rockwell").emit(project, lower_project(project), tmp_path)
+    l5x = (tmp_path / "rockwell" / "LangDemo.L5X").read_text()
+    safety = l5x.split('Program Name="Safety"')[1].split("</Program>")[0]
+    assert 'Routine Name="Main" Type="RLL"' in safety
+    assert "[XIO(estop_ok) ,XIO(guard_closed) ]OTU(run_permit);" in safety
+    assert "XIC(reset_pb)XIO(IL_master_rst_mem)XIC(estop_ok)" \
+           "XIC(guard_closed)OTL(run_permit);" in safety
+    # non-ladder programs keep ST routines
+    runtime = l5x.split('Program Name="Runtime"')[1].split("</Program>")[0]
+    assert 'Type="ST"' in runtime
+
+
+def test_rockwell_rll_timer_tag_carries_preset(tmp_path):
+    p = Project.model_validate({
+        "name": "JogT",
+        "tags": [{"name": "run_cmd", "type": "BOOL", "direction": "input"},
+                 {"name": "warm", "type": "BOOL", "direction": "output"}],
+        "programs": [{"name": "Main", "language": "ladder", "logic": [
+            {"element": "timer", "id": "T1", "input": "run_cmd",
+             "preset": "T#2s", "done": "warm"}]}],
+    })
+    get_backend("rockwell").emit(p, lower_project(p), tmp_path)
+    l5x = (tmp_path / "rockwell" / "JogT.L5X").read_text()
+    assert 'DataType="TIMER"' in l5x
+    assert '<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="2000"/>' in l5x
+    assert "XIC(run_cmd)TON(T1_t,?,?);" in l5x
+    assert "XIC(T1_t.DN)OTE(warm);" in l5x        # Q -> DN member mapping
+
+
+def test_plcopen_graphic_bodies(project, tmp_path):
+    get_backend("plcopen").emit(project, lower_project(project), tmp_path)
+    xml = (tmp_path / "plcopen" / "LangDemo.xml").read_text()
+    safety = xml.split('pou name="Safety"')[1].split("</pou>")[0]
+    assert "<LD>" in safety
+    assert 'storage="reset"' in safety and 'storage="set"' in safety
+    assert 'negated="true"' in safety             # XIO contacts
+    jam = xml.split('pou name="JamDetect"')[1].split("</pou>")[0]
+    assert "<FBD>" in jam
+    assert 'typeName="TON" instanceName="ALM_jam_ton"' in jam
+    assert "<expression>jam_alarm</expression>" in jam
+    seq = xml.split('pou name="Sequence"')[1].split("</pou>")[0]
+    assert "<SFC>" in seq
+    assert 'initialStep="true"' in seq
+    assert "seq_state := 0;" in seq               # state tag kept truthful
+    assert 'targetName="draining"' in seq
+    runtime = xml.split('pou name="Runtime"')[1].split("</pou>")[0]
+    assert "<IL>" in runtime and "CAL T_warmup_t(" in runtime
