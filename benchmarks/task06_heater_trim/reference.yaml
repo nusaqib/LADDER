@@ -1,0 +1,24 @@
+ir_version: "0.2"
+name: Task06
+description: Proportional heater trim with clamp and bumpless freeze.
+tags:
+  - {name: temp_sp, type: REAL, comment: Temperature setpoint (degC)}
+  - {name: temp_pv, type: REAL, direction: input, comment: Measured temperature (degC)}
+  - {name: auto_mode, type: BOOL, direction: input, comment: Controller in automatic}
+  - {name: heater_cv, type: REAL, direction: output, comment: Heater output (percent)}
+programs:
+  - name: Trim
+    execution: periodic
+    interval: T#100ms
+    logic:
+      - element: pid
+        id: PID_heater
+        description: Proportional-only trim, clamped, frozen out of auto.
+        setpoint: temp_sp
+        process_value: temp_pv
+        output: heater_cv
+        kp: 2.0
+        interval: T#100ms
+        out_min: 0.0
+        out_max: 100.0
+        enable: auto_mode

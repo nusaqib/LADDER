@@ -75,14 +75,15 @@ def verify_siemens(project: Project, outdir: Path) -> VerifyResult:
     return VerifyResult("siemens", "fail", tail or f"build.ps1 exit {code} (see build.log)")
 
 
-def verify_smv(project: Project, outdir: Path) -> VerifyResult:
+def verify_smv(project: Project, outdir: Path,
+               properties: str | None = None) -> VerifyResult:
     """Model-check emitted SMV with nuXmv (env NUXMV_BIN or on PATH)."""
     from ladder.model_check import emit_project
 
     bin_ = os.environ.get("NUXMV_BIN") or shutil.which("nuxmv") or shutil.which("nuXmv")
     if not bin_:
         return VerifyResult("smv", "skip", "nuXmv not found (set NUXMV_BIN)")
-    files, skipped = emit_project(project, outdir / "smv")
+    files, skipped = emit_project(project, outdir / "smv", properties=properties)
     if not files:
         return VerifyResult("smv", "skip", "; ".join(skipped) or "nothing model-checkable")
     failures = []
@@ -108,12 +109,15 @@ CHECKERS = {
 }
 
 
-def verify_targets(project: Project, outdir: Path, targets: list[str]) -> list[VerifyResult]:
+def verify_targets(project: Project, outdir: Path, targets: list[str],
+                   properties: str | None = None) -> list[VerifyResult]:
     results = []
     for t in targets:
         fn = CHECKERS.get(t)
         if fn is None:
             results.append(VerifyResult(t, "skip", "no checker for this backend yet"))
+        elif t == "smv":
+            results.append(verify_smv(project, outdir, properties=properties))
         else:
             results.append(fn(project, outdir))
     return results

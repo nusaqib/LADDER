@@ -1,0 +1,32 @@
+# Acceptance scenarios - task06 heater trim
+scenarios:
+  - name: proportional_action
+    steps:
+      - set: {auto_mode: true, temp_sp: 10.0, temp_pv: 6.0}
+      - scan: {dt_ms: 100}
+      - expect: {heater_cv: 8.0}             # 2.0 * (10 - 6)
+      - set: {temp_pv: 9.0}
+      - scan: {dt_ms: 100}
+      - expect: {heater_cv: 2.0}
+
+  - name: output_clamps
+    steps:
+      - set: {auto_mode: true, temp_sp: 100.0, temp_pv: 0.0}
+      - scan: {dt_ms: 100}
+      - expect: {heater_cv: 100.0}
+      - set: {temp_sp: 0.0, temp_pv: 50.0}
+      - scan: {dt_ms: 100}
+      - expect: {heater_cv: 0.0}
+
+  - name: freeze_out_of_auto
+    steps:
+      - set: {auto_mode: true, temp_sp: 10.0, temp_pv: 6.0}
+      - scan: {dt_ms: 100}
+      - expect: {heater_cv: 8.0}
+      - set: {auto_mode: false}
+      - set: {temp_sp: 90.0, temp_pv: 0.0}
+      - scan: {n: 5, dt_ms: 100}
+      - expect: {heater_cv: 8.0}             # held, bumpless
+      - set: {auto_mode: true, temp_sp: 10.0, temp_pv: 6.0}
+      - scan: {dt_ms: 100}
+      - expect: {heater_cv: 8.0}

@@ -264,7 +264,33 @@ def _int_domain(name: str, stmts: list[Stmt], initial: int) -> str:
     return "{" + ", ".join(str(c) for c in sorted(codes)) + "}"
 
 
-def emit_smv(project: Project, lp: LoweredProgram) -> str:
+def load_properties(path) -> dict[str, list[dict]]:
+    """User-supplied invariants, program-keyed. YAML:
+
+        properties:
+          - program: Safety
+            description: a breach anywhere kills every permit
+            given: BTA.Inputs_OK          # optional antecedent
+            always: NOT BTA.Search_Complete OR BTA.Inputs_OK
+
+    Expressions are neutral IR syntax (dotted UDT paths welcome) over the
+    program's variables, evaluated on the current state; each becomes
+    INVARSPEC ((given) -> (always)).
+    """
+    import yaml as _yaml
+    from pathlib import Path as _Path
+
+    data = _yaml.safe_load(_Path(path).read_text(encoding="utf-8")) or {}
+    out: dict[str, list[dict]] = {}
+    for p in data.get("properties", []):
+        if "program" not in p or "always" not in p:
+            raise ModelError(f"{path}: every property needs 'program' and 'always'")
+        out.setdefault(p["program"], []).append(p)
+    return out
+
+
+def emit_smv(project: Project, lp: LoweredProgram,
+             user_props: list[dict] | None = None) -> str:
     prog = lp.program
     all_tags = {t.name: t for t in (*project.tags, *prog.variables)}
     types_map = {t.name: t for t in project.types}
@@ -366,16 +392,30 @@ def emit_smv(project: Project, lp: LoweredProgram) -> str:
             lines.append(f"-- {el.id}: stations latch strictly in walk order")
             for i in range(1, len(lats)):
                 lines.append(f"INVARSPEC ({lats[i]} -> {lats[i - 1]});")
+
+    # user-supplied invariants (neutral expression syntax, current state)
+    for p in user_props or []:
+        always = _smv_expr(X.parse_expr(str(p["always"])), _PropCtx())
+        if p.get("given"):
+            given = _smv_expr(X.parse_expr(str(p["given"])), _PropCtx())
+            spec = f"(({given}) -> ({always}))"
+        else:
+            spec = f"({always})"
+        if p.get("description"):
+            lines.append(f"-- user property: {p['description']}")
+        lines.append(f"INVARSPEC {spec};")
     return "\n".join(lines) + "\n"
 
 
-def emit_project(project: Project, outdir: Path) -> tuple[list[Path], list[str]]:
+def emit_project(project: Project, outdir: Path,
+                 properties: str | Path | None = None) -> tuple[list[Path], list[str]]:
     """Emit one .smv per model-checkable program; return (files, skip notes)."""
     outdir.mkdir(parents=True, exist_ok=True)
+    user_props = load_properties(properties) if properties else {}
     files, skipped = [], []
     for name, lp in lower_project(project).items():
         try:
-            text = emit_smv(project, lp)
+            text = emit_smv(project, lp, user_props.get(name))
         except ModelError as e:
             skipped.append(f"{name}: {e}")
             continue

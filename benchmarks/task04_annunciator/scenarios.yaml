@@ -1,0 +1,49 @@
+# Acceptance scenarios - task04 annunciator
+scenarios:
+  - name: first_out_captures_first_trip_only
+    steps:
+      - set: {water_ok: true, temp_ok: true, oil_ok: true}
+      - scan: {}
+      - expect: {panel_lamp: false, horn: false, first_out: 0}
+      - set: {temp_ok: false}
+      - scan: {}
+      - expect: {panel_lamp: true, horn: true, first_out: 2}
+      - set: {oil_ok: false}
+      - scan: {}
+      - expect: {first_out: 2}
+
+  - name: ack_silences_horn_standing_cause_keeps_window
+    steps:
+      - set: {water_ok: true, temp_ok: true, oil_ok: true}
+      - scan: {}
+      - set: {oil_ok: false}
+      - scan: {}
+      - pulse: ack_pb
+      - expect: {horn: false, panel_lamp: true}
+      - set: {oil_ok: true}
+      - scan: {}
+      - expect: {panel_lamp: true}          # needs an ack after the cause clears
+      - pulse: ack_pb
+      - expect: {panel_lamp: false, first_out: 0}
+
+  - name: new_alarm_resounds_horn
+    steps:
+      - set: {water_ok: true, temp_ok: true, oil_ok: true}
+      - scan: {}
+      - set: {temp_ok: false}
+      - scan: {}
+      - pulse: ack_pb
+      - expect: {horn: false}
+      - set: {oil_ok: false}
+      - scan: {}
+      - expect: {horn: true, first_out: 2}
+
+  - name: water_debounces_two_seconds
+    steps:
+      - set: {water_ok: true, temp_ok: true, oil_ok: true}
+      - scan: {}
+      - set: {water_ok: false}
+      - run: {ms: 1800, dt_ms: 100}
+      - expect: {panel_lamp: false}
+      - run: {ms: 400, dt_ms: 100}
+      - expect: {panel_lamp: true, first_out: 1}

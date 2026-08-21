@@ -1,0 +1,27 @@
+ir_version: "0.2"
+name: Task05
+description: Sequential area search with breach cascade.
+tags:
+  - {name: door_closed, type: BOOL, direction: input, comment: Enclosure door closed}
+  - {name: estop_ok, type: BOOL, direction: input, comment: E-stop chain healthy}
+  - {name: key_a, type: BOOL, direction: input, comment: Search key A (walk order 1)}
+  - {name: key_b, type: BOOL, direction: input, comment: Search key B (walk order 2)}
+  - {name: key_c, type: BOOL, direction: input, comment: Search key C (walk order 3)}
+  - {name: inputs_ok, type: BOOL, direction: output, comment: All protective inputs healthy}
+  - {name: search_done, type: BOOL, direction: output, comment: Search complete}
+programs:
+  - name: Search
+    logic:
+      - element: assign
+        target: inputs_ok
+        value: {all: [door_closed, estop_ok]}
+        description: Protective inputs healthy.
+      - element: search_chain
+        id: SRCH_area
+        description: Walk order A -> B -> C; breach clears everything.
+        precondition: inputs_ok
+        stations:
+          - {name: A, key: key_a}
+          - {name: B, key: key_b}
+          - {name: C, key: key_c}
+        complete: search_done

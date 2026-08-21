@@ -1,0 +1,28 @@
+ir_version: "0.2"
+name: Task04
+description: Three-window annunciator with first-out capture.
+tags:
+  - {name: water_ok, type: BOOL, direction: input, comment: Cooling water flow OK}
+  - {name: temp_ok, type: BOOL, direction: input, comment: Discharge temperature OK}
+  - {name: oil_ok, type: BOOL, direction: input, comment: Oil pressure OK}
+  - {name: ack_pb, type: BOOL, direction: input, comment: Acknowledge pushbutton}
+  - {name: panel_lamp, type: BOOL, direction: output, comment: Group alarm lamp}
+  - {name: horn, type: BOOL, direction: output, comment: Alarm horn}
+  - {name: first_out, type: INT, comment: "First-out: 0=none 1=water 2=temp 3=oil"}
+programs:
+  - name: Annunciator
+    logic:
+      - element: alarm_group
+        id: GRP_room
+        description: Compressor room annunciator.
+        ack: ack_pb
+        active: panel_lamp
+        unacked: horn
+        first_out: first_out
+        alarms:
+          - {name: water, condition: {not: water_ok}, on_delay: T#2s,
+             description: Cooling water flow lost (debounced)}
+          - {name: temp, condition: {not: temp_ok},
+             description: Discharge over temperature}
+          - {name: oil, condition: {not: oil_ok},
+             description: Oil pressure low}

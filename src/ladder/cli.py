@@ -85,7 +85,9 @@ def cmd_verify(args) -> int:
     for t in targets:
         if split_target(t)[0] in registry:  # 'smv' is a checker, not a backend
             get_backend(t).emit(project, lowered, outdir, iomap=iomap)
-    results = verify_targets(project, outdir, [split_target(t)[0] for t in targets])
+    results = verify_targets(project, outdir,
+                             [split_target(t)[0] for t in targets],
+                             properties=getattr(args, "properties", None))
     failed = False
     for r in results:
         print(r)
@@ -150,7 +152,8 @@ def cmd_model(args) -> int:
     from ladder.model_check import emit_project
 
     project = _load_validated(args.ir)
-    files, skipped = emit_project(project, Path(args.out) / "smv")
+    files, skipped = emit_project(project, Path(args.out) / "smv",
+                                  properties=args.properties)
     for f in files:
         print(f"  {f}")
     for note in skipped:
@@ -457,6 +460,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("-o", "--out", default="out")
     p.add_argument("--iomap", default=None,
                    help="IO map YAML binding IO tags to vendor addresses/aliases")
+    p.add_argument("--properties", default=None,
+                   help="YAML of user invariants for the smv checker")
     p.set_defaults(fn=cmd_verify)
 
     p = sub.add_parser("schema", help="export the IR JSON Schema (the LLM contract)")
@@ -486,6 +491,9 @@ def main(argv: list[str] | None = None) -> int:
                                      "for nuXmv model checking")
     p.add_argument("ir")
     p.add_argument("-o", "--out", default="out")
+    p.add_argument("--properties", default=None,
+                   help="YAML of user invariants (program/given/always) "
+                        "appended as INVARSPECs")
     p.set_defaults(fn=cmd_model)
 
     p = sub.add_parser("bench", help="score an LLM across the benchmark tasks "

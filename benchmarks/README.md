@@ -13,6 +13,17 @@ A submission passes a task when its IR validates (`ladder validate`) and
 **all acceptance scenarios pass** (`ladder test`). No vendor software is
 involved anywhere — scoring is pure Python.
 
+## Tasks
+
+| Task | Exercises |
+|---|---|
+| task01_conveyor_jam | seal-in start, stop chain, delayed jam alarm + ack |
+| task02_tank_level | level control, latching, timing |
+| task03_batch_mixer | state machine sequencing |
+| task04_annunciator | alarm group: first-out, horn re-sound, ack semantics |
+| task05_area_search | search chain: walk order, edge keys, breach cascade |
+| task06_heater_trim | PID: proportional action, clamping, bumpless freeze |
+
 ## Running
 
 ```bash

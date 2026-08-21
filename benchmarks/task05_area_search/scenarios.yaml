@@ -1,0 +1,70 @@
+# Acceptance scenarios - task05 area search
+scenarios:
+  - name: walk_in_order_completes
+    steps:
+      - set: {door_closed: true, estop_ok: true}
+      - scan: {}
+      - set: {key_a: true}
+      - scan: {}
+      - set: {key_a: false}
+      - scan: {}
+      - set: {key_b: true}
+      - scan: {}
+      - set: {key_b: false}
+      - scan: {}
+      - expect: {search_done: false}
+      - set: {key_c: true}
+      - scan: {}
+      - expect: {search_done: true}
+      - set: {key_c: false}
+      - scan: {}
+      - expect: {search_done: true}          # latch holds after release
+
+  - name: out_of_order_rejected
+    steps:
+      - set: {door_closed: true, estop_ok: true}
+      - scan: {}
+      - set: {key_b: true}
+      - scan: {}
+      - set: {key_b: false}
+      - scan: {}
+      - set: {key_a: true}
+      - scan: {}
+      - set: {key_c: true}
+      - scan: {}
+      - expect: {search_done: false}
+
+  - name: held_key_does_not_ride
+    steps:
+      - set: {door_closed: true, estop_ok: true}
+      - scan: {}
+      - set: {key_b: true}                   # held early, before A
+      - scan: {}
+      - set: {key_a: true}
+      - scan: {n: 3}
+      - expect: {search_done: false}
+      - set: {key_b: false}
+      - scan: {}
+      - set: {key_b: true}                   # genuine turn
+      - scan: {}
+      - set: {key_c: true}
+      - scan: {}
+      - expect: {search_done: true}
+
+  - name: breach_cascades_and_needs_rewalk
+    steps:
+      - set: {door_closed: true, estop_ok: true}
+      - scan: {}
+      - set: {key_a: true, key_b: false, key_c: false}
+      - scan: {}
+      - set: {key_b: true}
+      - scan: {}
+      - set: {key_c: true}
+      - scan: {}
+      - expect: {search_done: true}
+      - set: {door_closed: false}
+      - scan: {}
+      - expect: {search_done: false}
+      - set: {door_closed: true}
+      - scan: {n: 2}
+      - expect: {search_done: false}         # restore does not re-arm
