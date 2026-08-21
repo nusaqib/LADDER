@@ -251,14 +251,17 @@ reproducibility, \emph{not} a certified or deployable safety system.
 
 LADDER is open-source-ready (BSD-style license with a safety
 disclaimer, contribution and security policies, CI); the IR is at
-version 0.2 with a semver/RFC process toward a frozen 1.0. Planned
-work includes requirement-pattern properties and counterexample
-replay as failing scenarios (following PLCverif's
-practice~\cite{plcverif-status}), mutation testing of scenario and
-theorem strength, EPICS interface artifacts from the same IR, and
-Rockwell/TwinCAT reverse adoption. Generated logic must always be
-reviewed by qualified controls engineers; LADDER is engineering
-automation and evidence generation, not certification.
+version 0.2 with a semver/RFC process toward a frozen 1.0. Practices
+adopted from the surveyed ecosystem are already landed: PLCverif-style
+requirement patterns~\cite{plcverif-status}, counterexamples replayed
+as runnable simulator scenarios, mutation testing that scores the
+acceptance suite by fault injection (and found real gaps in our own
+starter suite), a packaged backend-conformance corpus, semantic design
+diffs, behavior-preserving L5X reverse adoption, and EPICS interface
+records generated from the same IR. Remaining directions include
+TwinCAT reverse adoption and emulator-in-the-loop stages. Generated
+logic must always be reviewed by qualified controls engineers; LADDER
+is engineering automation and evidence generation, not certification.
 
 \section{Acknowledgments}
 

@@ -139,10 +139,19 @@ structure:
 | Safety elements: `dual_channel` (1oo2 + discrepancy), `search_chain` (PPS area search) | ✅ semantics from a reviewed reference PPS; auto-theorems proved by nuXmv (UDT members supported) |
 | **Modular IR**: `ir/` directory (project/types/tags/programs per file) | ✅ filename order = scan order; large projects split into reviewable sections |
 | `ladder docs` — the generated documentation package | ✅ requirements, software spec, conventions, developer + operator manuals, verification report |
-| Studio 5000 L5X import validation | ⬜ manual: open `out\rockwell\*.L5X` in v36 (SDK 2.x for automation) |
-| Vendor engines (structure adoption from reference programs) | ⬜ next — see [docs/ROADMAP.md](docs/ROADMAP.md) |
-| Pattern library from reference programs | ⬜ seeded |
-| LAD/FBD rendering, formal checks, simulation | ⬜ roadmap |
+| **`pid`** element (clamping anti-windup, bumpless enable) + closed-loop scenario testing via `model:` plant steps + `expect_near` | ✅ PID converges to setpoint against a first-order plant, in pure YAML |
+| `ladder render` — HTML logic report (rung art + scenarios + theorems) | ✅ the review artifact for people who don't read YAML |
+| `ladder sim` — interactive scan-by-scan REPL | ✅ set/pulse/run/watch/state/model |
+| `ladder mutate` — scenario-strength scoring by fault injection | ✅ scaffold starter kills 100% of mutants (pinned by test) |
+| `ladder diff` — semantic IR diff in design language | ✅ permissives gained/DROPPED, scan-order warnings |
+| `ladder doctor` / `ladder apply` / `ladder prompt --intake` | ✅ machine preflight; intake-loop paste-back; interviewer contract |
+| Counterexample replay: violated theorem → runnable scenario | ✅ `verify -t smv` writes `*.replay.scenarios.yaml` |
+| `ladder conformance` — corpus as the backend/plugin contract | ✅ all built-in backends pass |
+| Reverse adoption: `ladder adopt rockwell <L5X>` | ✅ behavior-preserving round-trip proved in tests |
+| `epics` backend — .db records + alarm list from the same IR | ✅ transport-agnostic macros |
+| Self-contained projects: vendor/LADDER submodule + bootstrap + `requires:` gate | ✅ clone → bootstrap → green |
+| Studio 5000 L5X automated import (Logix SDK 2.x) | ⬜ manual import verified; SDK not on this machine |
+| TwinCAT reverse adoption (blark), Automation Interface driver | ⬜ roadmap — see [docs/ROADMAP.md](docs/ROADMAP.md) |
 
 Agent/LLM working notes (tool-agnostic): [AGENTS.md](AGENTS.md).
 Expert workflows as portable skills (intake → IR → vendor deploy → verify):
