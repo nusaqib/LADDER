@@ -98,8 +98,18 @@ Everything under `out/` is disposable — regenerate, never hand-edit.
 dual_channel / search_chain / alarm_group; `ladder verify -t smv` runs
 nuXmv (`NUXMV_BIN`). Timers are over-approximated, so proofs hold for
 every preset. For big models use IC3 (`check_invar_ic3`) instead of the
-default BDD engine. Add your own invariants in a properties file — see
-[VERIFICATION notes in the skill](../skills/verification/SKILL.md).
+default BDD engine. Add your own invariants in a properties file:
+
+```yaml
+properties:
+  - program: Safety
+    description: a completed search implies the first station
+    given: search_done
+    always: key1.Latched
+```
+
+`ladder model <ir> --properties props.yaml` (also on `verify`) appends
+them as INVARSPECs beside the auto-theorems.
 
 ## …simulate one weird timing by hand?
 
