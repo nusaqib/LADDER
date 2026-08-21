@@ -7,4 +7,5 @@ existing code is a later phase). Every adopter also writes a STRUCTURE.md
 report - the raw material for encoding project conventions in an engine.
 """
 
+from ladder.adopt.rockwell import adopt_rockwell_l5x  # noqa: F401
 from ladder.adopt.siemens import adopt_siemens_spec  # noqa: F401

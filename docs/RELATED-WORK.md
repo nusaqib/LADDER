@@ -62,7 +62,7 @@ is the IR-with-domain-semantics and theorem auto-generation.
 | model reductions (cone of influence) for big SMV models | PLCverif | roadmap (IC3 covers current scale) |
 | counterexample → replayable failing scenario in our own simulator | PLCverif (improved) | **adopted** (`verify -t smv` writes `*.replay.scenarios.yaml`) |
 | render each auto-theorem as controlled English in the doc package | FRET | partially adopted (`ladder render` lists each theorem with its English description) |
-| semantic `ladder diff` ("interlock X gained input Y") for reviews | Copia's lesson | roadmap |
+| semantic `ladder diff` ("interlock X gained input Y") for reviews | Copia's lesson | **adopted** (`ladder diff old new`: field-level design-language changes, scan-order warnings) |
 | mutation testing of the IR to score scenario/theorem strength | STMutants | **adopted** (`ladder mutate`: semantic fault injection, survivor report; scaffold suite scores 100%) |
 | emulator-in-the-loop stage after artifact build (PLCSIM Adv. / Logix Echo) | Rockwell AT002 | roadmap |
 | emit EPICS/OPC UA interface artifacts from the same IR | pytmc/ESS | roadmap (labs will ask immediately) |

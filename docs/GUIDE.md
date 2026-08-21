@@ -246,6 +246,15 @@ Export it with the TiaOpenness module (`Export-TiaToSpec`), then
 `ladder adopt siemens <spec-dir>` — you get IR plus a structure report.
 Diff round-trips (IR → SCL → TIA → export → IR) to prove fidelity.
 
+## …bring an existing Studio 5000 program into LADDER?
+
+Export the controller as L5X (File → Save As → L5X), then
+`ladder adopt rockwell plant.L5X` — tags, UDTs, timers (presets
+included), and RLL rungs come back as elements; anything untranslatable
+is quarantined as a commented `st` block and listed in the report.
+Prove fidelity behaviorally: write scenarios against the old program's
+known behavior and run them on the adopted IR.
+
 ## …add a new vendor?
 
 A backend is one self-contained module rendering the neutral statement

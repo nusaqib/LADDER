@@ -71,8 +71,11 @@ beckhoff, iec).
 - ✅ What the reference taught became *generic* capability here:
   `dual_channel`, `search_chain`, UDT-aware model checking, per-program
   languages, modular IR.
-- ⬜ `[eng]` Reverse adoption for Rockwell (`l5x` lib) and TwinCAT
-  (blark).
+- ✅ Reverse adoption for Rockwell: `ladder adopt rockwell <file.L5X>`
+  (tags, UDTs, TIMER presets, RLL rung text → elements; untranslatable
+  rungs quarantined and reported). Fidelity proved behaviorally:
+  emit → adopt → the identical scenario suite passes.
+- ⬜ `[eng]` Reverse adoption for TwinCAT (blark).
 - ⬜ `[user]` A Studio 5000 reference program for the Rockwell engine.
 
 ### M3 — Pattern library + richer IR ✅ (Aug 2026)

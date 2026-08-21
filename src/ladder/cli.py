@@ -243,12 +243,18 @@ def cmd_prompt(args) -> int:
 def cmd_adopt(args) -> int:
     import yaml
 
-    from ladder.adopt import adopt_siemens_spec
+    from ladder.adopt import adopt_rockwell_l5x, adopt_siemens_spec
 
-    if args.vendor != "siemens":
-        print(f"no adopter for {args.vendor!r} yet (siemens only)", file=sys.stderr)
+    if args.vendor == "siemens":
+        result = adopt_siemens_spec(args.spec)
+    elif args.vendor == "rockwell":
+        result = adopt_rockwell_l5x(args.spec)
+        if result.unsupported:
+            result.report += "\n\nUntranslated (kept as commented st):\n" + \
+                "\n".join(f"- {u}" for u in result.unsupported)
+    else:
+        print(f"no adopter for {args.vendor!r}", file=sys.stderr)
         return 1
-    result = adopt_siemens_spec(args.spec)
     outdir = Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)
 
@@ -263,8 +269,12 @@ def cmd_adopt(args) -> int:
         sort_keys=False, allow_unicode=True), encoding="utf-8")
     report_path = outdir / "STRUCTURE.md"
     report_path.write_text(result.report, encoding="utf-8")
-    print(f"adopted {len(result.project.tags)} tags, "
-          f"{sum(b.lifted for b in result.blocks)}/{len(result.blocks)} blocks lifted")
+    blocks = getattr(result, "blocks", None)
+    if blocks is not None:
+        print(f"adopted {len(result.project.tags)} tags, "
+              f"{sum(b.lifted for b in blocks)}/{len(blocks)} blocks lifted")
+    else:
+        print(result.report.splitlines()[0])
     print(f"  {ir_path}\n  {report_path}")
     # round-trip sanity: the adopted IR must itself validate
     res = validate_project(result.project)
@@ -740,8 +750,9 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(fn=cmd_render)
 
     p = sub.add_parser("adopt", help="reverse adoption: vendor project spec -> IR "
-                                     "(siemens: Export-TiaToSpec folder)")
-    p.add_argument("vendor", choices=["siemens"])
+                                     "(siemens: Export-TiaToSpec folder; "
+                                     "rockwell: an .L5X file)")
+    p.add_argument("vendor", choices=["siemens", "rockwell"])
     p.add_argument("spec", help="spec folder (Export-TiaToSpec output)")
     p.add_argument("-o", "--out", default="adopted")
     p.set_defaults(fn=cmd_adopt)
