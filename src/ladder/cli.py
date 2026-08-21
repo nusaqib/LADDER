@@ -337,6 +337,82 @@ def cmd_check(args) -> int:
     return 1 if failed else 0
 
 
+def cmd_deploy(args) -> int:
+    """Materialize the vendor IDE project(s) named by the manifest's
+    `deploy:` list (or run its `deploy_script`). Separate from `check`
+    on purpose: artifact builds are portable; driving a vendor IDE needs
+    the licensed tool on THIS machine."""
+    import subprocess
+
+    from ladder.backends.base import split_target
+    from ladder.scaffold import ManifestError, load_manifest
+
+    try:
+        manifest, root = load_manifest(args.directory)
+    except ManifestError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+
+    # fresh artifacts first (same gate as check would have used)
+    project = _load_validated(root / manifest.ir)
+    iomap = None
+    if manifest.iomap:
+        from ladder.iomap import load_iomap
+
+        iomap = load_iomap(root / manifest.iomap)
+    lowered = lower_project(project)
+    outdir = root / manifest.out
+    for spec in (manifest.deploy or manifest.targets):
+        if split_target(spec)[0] in registry:
+            get_backend(spec).emit(project, lowered, outdir, iomap=iomap)
+
+    def run(cmd: list[str]) -> int:
+        print(f"  running: {' '.join(cmd)}")
+        return subprocess.call(cmd, cwd=root)
+
+    if manifest.deploy_script:
+        script = str(root / manifest.deploy_script)
+        if script.endswith(".ps1"):
+            rc = run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                      "-File", script])
+        elif script.endswith(".py"):
+            rc = run([sys.executable, script])
+        else:
+            rc = run([script])
+        print("deploy " + ("PASSED" if rc == 0 else "FAILED"))
+        return rc
+
+    if not manifest.deploy:
+        print("nothing to deploy: add `deploy: [siemens@21, ...]` (or a "
+              "deploy_script) to ladder.yaml — `targets:` builds artifacts "
+              "only", file=sys.stderr)
+        return 1
+    failed = False
+    for spec in manifest.deploy:
+        name, ver = split_target(spec)
+        if name == "siemens":
+            build = outdir / "siemens" / "build.ps1"
+            cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                   "-File", str(build)]
+            if ver:
+                cmd += ["-Version", ver if "." in ver else f"{ver}.0"]
+            rc = run(cmd)
+            failed |= rc != 0
+            if rc == 0:
+                print(f"  openable project: {outdir / 'siemens' / 'project'}")
+        elif name == "rockwell":
+            print(f"  rockwell: import {outdir / 'rockwell'} L5X into Studio "
+                  "5000 (automated creation needs Logix Designer SDK 2.x; "
+                  "not installed on this machine -> manual import)")
+        elif name in ("beckhoff",):
+            print(f"  {name}: add the emitted items from {outdir / name} to a "
+                  "TwinCAT solution (Automation Interface driver is roadmap)")
+        else:
+            print(f"  {name}: artifact-only target; nothing to deploy")
+    print("deploy " + ("FAILED" if failed else "PASSED"))
+    return 1 if failed else 0
+
+
 def cmd_docs(args) -> int:
     from ladder.docgen import generate_docs, load_doc_inputs
 
@@ -449,6 +525,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("directory", nargs="?", default=".",
                    help="project root containing ladder.yaml (default: .)")
     p.set_defaults(fn=cmd_check)
+
+    p = sub.add_parser("deploy", help="materialize the vendor IDE project(s) "
+                                      "named by the manifest's deploy: list "
+                                      "(or run its deploy_script)")
+    p.add_argument("directory", nargs="?", default=".",
+                   help="project root containing ladder.yaml (default: .)")
+    p.set_defaults(fn=cmd_deploy)
 
     p = sub.add_parser("docs", help="generate the documentation package "
                                     "(requirements, software spec, conventions, "

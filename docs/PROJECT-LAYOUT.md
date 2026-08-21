@@ -97,10 +97,28 @@ targets: [iec, plcopen, siemens, rockwell, beckhoff]
 out: out
 ```
 
+```yaml
+deploy: [siemens@21]                  # optional: vendor IDE projects
+# deploy_script: tools/build_f.ps1    # optional: project-specific engine
+```
+
 `ladder check [dir]` reads it and runs the full acceptance gate:
 validate + lint (V01–V11, W01–W06) → scenario simulation → artifact
 build for every target (with the IO map applied). Exit code 0 means the
 project is deployable-shape; project CI runs exactly this.
+
+**`targets:` vs `deploy:` — two verbs on purpose.** Artifact builds are
+portable: they run on any machine, including CI, with zero vendor
+software. Materializing an **openable vendor IDE project** (a TIA
+project, a Studio 5000 ACD) requires the licensed tool, minutes of wall
+clock, and a specific machine — so it is a separate, explicit action:
+`ladder deploy [dir]` runs the built-in per-vendor step for each
+`deploy:` entry (siemens: the emitted build script at the pinned
+`@version`; rockwell: SDK-driven when available, manual-import
+instructions otherwise), or the project's own `deploy_script` when the
+project ships its own engine. Which IDE projects a design produces is
+therefore a reviewable line in the design spec, not a per-invocation
+flag.
 
 ## Deployment from a project
 

@@ -42,7 +42,18 @@ class Manifest(BaseModel):
     ir: str = Field(description="Path to the IR document, relative to the manifest.")
     scenarios: Optional[str] = None
     iomap: Optional[str] = None
-    targets: list[str] = Field(default_factory=lambda: ["iec", "plcopen"])
+    targets: list[str] = Field(
+        default_factory=lambda: ["iec", "plcopen"],
+        description="Artifact targets built by every `ladder check` "
+        "(portable; runs anywhere incl. CI). 'name' or 'name@version'.")
+    deploy: list[str] = Field(
+        default_factory=list,
+        description="Vendor IDE projects materialized by `ladder deploy` "
+        "(needs the vendor tool on this machine), e.g. [siemens@21].")
+    deploy_script: Optional[str] = Field(
+        default=None,
+        description="Project-specific deploy engine run by `ladder deploy` "
+        "instead of the built-in per-vendor steps (.ps1/.py/shell).")
     out: str = "out"
 
 
@@ -72,11 +83,15 @@ def load_manifest(path: str | Path) -> tuple[Manifest, Path]:
     from ladder.backends import registry
     from ladder.backends.base import split_target
 
-    unknown = [t for t in m.targets if split_target(t)[0] not in registry]
+    unknown = [t for t in m.targets + m.deploy
+               if split_target(t)[0] not in registry]
     if unknown:
         raise ManifestError(f"{file}: unknown target(s) {unknown} "
                             f"(known: {sorted(registry)}, optionally "
                             "'name@version', e.g. siemens@21)")
+    if m.deploy_script and not (root / m.deploy_script).exists():
+        raise ManifestError(f"{file}: deploy_script {m.deploy_script!r} "
+                            "does not exist")
     return m, root
 
 
@@ -140,12 +155,17 @@ def init_project(directory: str | Path, name: str | None = None,
 # alarm - so every project begins green and users replace, not invent.
 
 _MANIFEST = """\
-# LADDER project manifest - what `ladder check` runs.
+# LADDER project manifest.
 project: __NAME__
 ir: ir/__SLUG__.yaml
 scenarios: scenarios/__SLUG__.scenarios.yaml
 iomap: iomaps/__SLUG__.iomap.yaml
+# artifact targets: built + verified by every `ladder check` (portable, CI)
 targets: [iec, plcopen, siemens, rockwell, beckhoff]
+# vendor IDE projects: materialized only by `ladder deploy`, only on a
+# machine with the vendor tool - e.g. [siemens@21]; a project with its own
+# engine can point deploy_script at it instead
+deploy: []
 out: out
 """
 
