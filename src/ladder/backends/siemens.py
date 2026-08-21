@@ -273,7 +273,7 @@ try {
         try {
             New-TiaDevice -TypeIdentifier $mlfb -Name 'PLC_1' | Out-Null
             $added = $mlfb; Write-Host "Added CPU: $mlfb"; break
-        } catch { Write-Host "  catalog rejected $mlfb" }
+        } catch { Write-Host "  device add failed for ${mlfb}: $($_.Exception.Message)" }
     }
     if (-not $added) { throw 'No candidate CPU accepted by this catalog; pass -Cpu with the exact MLFB.' }
 
