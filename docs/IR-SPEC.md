@@ -266,7 +266,7 @@ Native renderings (everything else falls back to ST with a note):
 | `il` | iec (`.st` file, matiec-checked in CI), plcopen (`<IL>` body) |
 | `ladder` | rockwell (RLL rung routines, native TIMER tags), plcopen (`<LD>` contacts/coils, set/reset via `storage`) |
 | `fbd` | plcopen (`<FBD>` block networks; set/reset rungs fold into the standard latch idiom, later-rung dominant) |
-| `sfc` | plcopen (`<SFC>` steps/transitions; actions also keep `state_tag` truthful) |
+| `sfc` | iec (textual SFC: STEP/TRANSITION/ACTION, matiec-checked in CI), plcopen (`<SFC>` steps/transitions); actions also keep `state_tag` truthful |
 
 Emitted PLCopen XML — including all graphic bodies — validates against the
 official tc6_0201 XSD (checked in CI).
