@@ -30,10 +30,14 @@ TIA Portal + Openness and the TiaOpenness PowerShell module (default
    (global DB for UDT/array tags — TIA PLC tag tables cannot hold them),
    `FB_<Program>.scl` per program, `PlcTags.csv` (scalars), `build.ps1`.
 
-3. **Live compile**: `powershell -NoProfile -ExecutionPolicy Bypass -File out\siemens\build.ps1 -Version 19.0`
-   (headless portal → scratch project → CPU → tags → source import in
+3. **Live compile**: `powershell -NoProfile -ExecutionPolicy Bypass -File out\siemens\build.ps1 [-Version 21.0]`
+   (headless portal → project → CPU → tags → source import in
    types→DB→FB order → compile; exits nonzero on errors). Equivalent:
-   `ladder verify <project>.yaml -t siemens -o out`.
+   `ladder verify <project>.yaml -t siemens -o out`. The **openable TIA
+   project** is written to `out\siemens\project\<Name>\<Name>.ap<ver>`
+   (override with `-WorkDir`) — it is a git-ignored build artifact:
+   regenerate it, never hand-edit it, and close it in TIA before
+   rebuilding (the build refreshes the folder).
    - Never attach to a human's open portal session; the script always
      starts its own (`Connect-TiaPortal -New`).
    - **V21 gotcha**: SCL import needs a STEP 7 Professional license

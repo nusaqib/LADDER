@@ -389,7 +389,9 @@ ladder check .          # validate + lint + scenarios + build all targets
 
 Change process: update `design/DESIGN.md` → mirror it in the IR and
 scenarios → `ladder check .` until green → deploy from `out/` (Siemens:
-run `out/siemens/build.ps1`; Rockwell: import `out/rockwell/*.L5X`).
+run `out/siemens/build.ps1`, which writes the openable TIA project to
+`out/siemens/project/`; Rockwell: import `out/rockwell/*.L5X`). Everything
+under `out/` is a disposable build artifact — regenerate, never hand-edit.
 
 Generated logic must be reviewed by a qualified controls engineer; it is
 not certified for SIL/PL-rated safety functions.

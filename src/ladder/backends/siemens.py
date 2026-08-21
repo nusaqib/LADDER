@@ -238,7 +238,10 @@ param(
     [string]$TiaApiPath  = '__API__',
     [string]$Version     = '__VERSION__',
     [string]$ProjectName = '__PROJECT__',
-    [string]$WorkDir     = "$env:TEMP\LADDER_Scratch",
+    # the openable IDE project is a build artifact: it lands in the
+    # (git-ignored) out folder next to this script and is disposable -
+    # regenerate it, never hand-edit it
+    [string]$WorkDir     = "$PSScriptRoot\project",
     [string]$Cpu         = '__CPU__',   # exact TypeIdentifier wins over candidates
     [switch]$KeepOpen                    # leave the portal running for inspection
 )
@@ -254,9 +257,12 @@ try {
     Connect-TiaPortal -New -WithUserInterface:$false -Version $Version | Out-Null
 
     $projDir = Join-Path $WorkDir $ProjectName
-    if (Test-Path $projDir) { Remove-Item $projDir -Recurse -Force }
+    if (Test-Path $projDir) {
+        try { Remove-Item $projDir -Recurse -Force }
+        catch { throw "Cannot refresh $projDir - close the project in TIA Portal first. ($($_.Exception.Message))" }
+    }
     New-TiaProject -Name $ProjectName -Path $WorkDir | Out-Null
-    Write-Host "Created scratch project $projDir"
+    Write-Host "Created project $projDir"
 
     # CPU: explicit -Cpu first, then candidates until the catalog accepts one.
     $candidates = @()
