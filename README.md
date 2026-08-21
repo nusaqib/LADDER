@@ -1,26 +1,42 @@
 # LADDER
 
 **L**LM-**A**ssisted **D**esign & **D**eployment of **E**ngineering **R**outines —
-autonomous, vendor-agnostic PLC program generation.
+vendor-agnostic PLC program generation from a declarative, verifiable design.
 
-An LLM (any LLM: hosted or local — the contract is a JSON Schema, not a model)
-emits a small, declarative, verifiable intermediate representation. LADDER
-validates it, lowers it deterministically, and per-vendor backends render real
-engineering artifacts:
+**LADDER is human-first and fully self-contained.** An engineer authors the
+design directly — a modular, segregated spec (design map, tags, UDTs, one
+program per file, IO map) that reads like design documentation, not code —
+and LADDER validates it, simulates it, proves it, and renders real
+engineering artifacts for every vendor. **The LLM is an optional catalyst**:
+because the contract is a plain JSON Schema and YAML, any model (hosted or
+local) can draft the same spec for the human to review — the skills, prompt
+bundle, and generation loop exist for that — but nothing in the pipeline
+requires one.
 
-```
- LLM / human ──► LADDER IR (YAML/JSON, schema- + semantically-validated)
-                    │  deterministic lowering (semantics locked in one place)
-                    ▼
-              neutral statement AST
-                    │
-      ┌─────────────┼──────────────┬───────────────┐
-      ▼             ▼              ▼               ▼
-   siemens       rockwell       plcopen         beckhoff
- TIA Portal V21  Studio 5000    PLCopen XML     TwinCAT 3
- SCL FBs + tag   V36 L5X with   2.01 / IEC      TcPOU + TcGVL
- CSV + Openness  ST routines,   61131-10        items
- build script    tasks, tags
+```mermaid
+flowchart TB
+    subgraph author [" authoring — any LLM or human "]
+        DM["Design Inputs Map<br/><i>signals · interlocks · alarms · scenarios</i>"]
+        IR["<b>LADDER IR</b> (YAML / modular dir)<br/><i>interlock · alarm_group · dual_channel ·<br/>search_chain · state_machine · scale · timer</i>"]
+        DM --> IR
+    end
+
+    IR --> V["validate V01–V11 + lint W01–W06<br/><i>pattern expansion · typed UDT paths</i>"]
+    V --> L["<b>deterministic lowering</b><br/><i>semantics locked once, for every vendor</i>"]
+    L --> AST["neutral statement AST"]
+
+    AST --> SIE["<b>siemens</b><br/>TIA Portal V21<br/>SCL + UDT + DB +<br/>Openness build"]
+    AST --> RW["<b>rockwell</b><br/>Studio 5000 V36<br/>L5X · ST + native<br/>RLL rungs"]
+    AST --> PO["<b>plcopen</b><br/>tc6 XML 2.01<br/>LD · FBD · SFC ·<br/>IL · ST bodies"]
+    AST --> BK["<b>beckhoff</b><br/>TwinCAT 3<br/>TcPOU · TcGVL ·<br/>TcDUT"]
+    AST --> IEC["<b>iec</b><br/>strict 61131-3<br/>ST · IL · textual<br/>SFC"]
+
+    IOM["IO map<br/><i>addresses / aliases —<br/>hardware never in the IR</i>"] -.-> SIE & RW & PO & BK & IEC
+
+    AST --> SIM["simulator + scenario suites<br/><i>the acceptance gate</i>"]
+    AST --> SMV["SMV models + auto theorems<br/><i>nuXmv proofs over every timing</i>"]
+    IEC --> MAT["matiec compile (CI)"]
+    PO --> XSD["official tc6 XSD validation (CI)"]
 ```
 
 The point: the model never writes vendor syntax. It selects patterns and fills

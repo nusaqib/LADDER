@@ -77,13 +77,15 @@ def cmd_verify(args) -> int:
     project = _load_validated(args.ir)
     iomap = _load_iomap(args, project)
     lowered = lower_project(project)
+    from ladder.backends.base import split_target
+
     targets = sorted(registry) if args.targets == "all" else args.targets.split(",")
     targets = [t.strip() for t in targets]
     outdir = Path(args.out)
     for t in targets:
-        if t in registry:  # 'smv' is a checker, not a backend
+        if split_target(t)[0] in registry:  # 'smv' is a checker, not a backend
             get_backend(t).emit(project, lowered, outdir, iomap=iomap)
-    results = verify_targets(project, outdir, targets)
+    results = verify_targets(project, outdir, [split_target(t)[0] for t in targets])
     failed = False
     for r in results:
         print(r)

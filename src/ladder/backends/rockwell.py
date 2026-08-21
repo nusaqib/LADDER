@@ -177,7 +177,8 @@ class RockwellBackend(Backend):
         aliases = aliases or {}
         hints = self.hints(project)
         processor = hints.get("processor", "1756-L85E")
-        major = hints.get("major_rev", 36)
+        # target version: 'rockwell@35' beats the vendor hint beats the default
+        major = int(self.version) if self.version else hints.get("major_rev", 36)
         d = RockwellStDialect()
         now = datetime.now().strftime("%a %b %d %H:%M:%S %Y")
         name_a = quoteattr(project.name)

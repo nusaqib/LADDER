@@ -22,8 +22,13 @@ class Backend(ABC):
     name: str = ""
     #: one-line description shown by `ladder targets`
     description: str = ""
-    #: tool/version the emitted artifacts target
+    #: tool/version the emitted artifacts target by default
     target: str = ""
+    #: requested tool version ('19', '21', '36', ...) - set by the
+    #: `name@version` target syntax; None = the backend's default. Version
+    #: quirks live in the backend keyed on this, which is what lets one
+    #: backend serve several tool generations without forking.
+    version: Optional[str] = None
 
     @abstractmethod
     def emit(self, project: Project, lowered: dict[str, LoweredProgram],
@@ -48,10 +53,20 @@ def register(cls: Type[Backend]) -> Type[Backend]:
     return cls
 
 
-def get_backend(name: str) -> Backend:
+def split_target(spec: str) -> tuple[str, Optional[str]]:
+    """'siemens@21' -> ('siemens', '21'); 'siemens' -> ('siemens', None)."""
+    name, _, version = spec.strip().partition("@")
+    return name, (version or None)
+
+
+def get_backend(spec: str) -> Backend:
+    """Instantiate a backend from 'name' or 'name@version'."""
+    name, version = split_target(spec)
     try:
-        return registry[name]()
+        b = registry[name]()
     except KeyError:
         raise BackendError(
             f"unknown backend {name!r}; available: {', '.join(sorted(registry))}"
         ) from None
+    b.version = version
+    return b

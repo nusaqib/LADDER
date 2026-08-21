@@ -6,6 +6,24 @@ one repo per machine/skid/system. This keeps facility-specific content
 (and anything lab-internal) out of the open tool, and gives every plant
 project its own history, review flow, and CI.
 
+```mermaid
+flowchart LR
+    subgraph tool [" LADDER (this repo, public) "]
+        CLI["CLI: init · check · docs ·<br/>build · verify · model · adopt"]
+        SK["skills/ + Design Inputs Map"]
+        BE["IR → lowering → backends"]
+    end
+    subgraph proj [" one user project per machine (own repo) "]
+        D["design/DESIGN.md"] --> I["ir/"] --> S["scenarios/"]
+        IOMAP["iomaps/"]
+        OUTD["out/ (git-ignored):<br/>artifacts + vendor IDE projects"]
+        DG["docs/generated/"]
+    end
+    CLI -->|"ladder init"| proj
+    I & S & IOMAP -->|"ladder check · docs"| OUTD & DG
+    proj -->|"CI: ladder check ."| CI2["project CI"]
+```
+
 ## Creating a project
 
 ```bash

@@ -320,9 +320,13 @@ exit $exit
                           hints: dict) -> str:
         scl_files = ", ".join(f"'{s}'" for s in sources)
         # ASCII only: PS 5.1 reads BOM-less files as ANSI (TIA_API convention)
+        # target version: 'siemens@19' beats the vendor hint beats the default
+        tia_version = self.version or str(hints.get("tia_version", "21.0"))
+        if "." not in tia_version:
+            tia_version += ".0"
         return (self._BUILD_TEMPLATE
                 .replace("__API__", str(hints.get("tia_api_path", "E:/TIA_Portal/TIA_API")))
-                .replace("__VERSION__", str(hints.get("tia_version", "21.0")))
+                .replace("__VERSION__", tia_version)
                 .replace("__PROJECT__", project.name)
                 .replace("__CPU__", str(hints.get("cpu", "")))
                 .replace("__SCL_FILES__", scl_files))

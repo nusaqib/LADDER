@@ -70,11 +70,13 @@ def load_manifest(path: str | Path) -> tuple[Manifest, Path]:
         if rel and not (root / rel).exists():
             raise ManifestError(f"{file}: {field} file {rel!r} does not exist")
     from ladder.backends import registry
+    from ladder.backends.base import split_target
 
-    unknown = [t for t in m.targets if t not in registry]
+    unknown = [t for t in m.targets if split_target(t)[0] not in registry]
     if unknown:
         raise ManifestError(f"{file}: unknown target(s) {unknown} "
-                            f"(known: {sorted(registry)})")
+                            f"(known: {sorted(registry)}, optionally "
+                            "'name@version', e.g. siemens@21)")
     return m, root
 
 
