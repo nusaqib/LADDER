@@ -27,11 +27,26 @@ flowchart LR
 ## Creating a project
 
 ```bash
-pip install git+https://github.com/nusaqib/LADDER.git
+pip install git+https://github.com/nusaqib/LADDER.git   # once, to get `ladder init`
 ladder init my-plant          # or: ladder init my-plant --name MyPlant
-cd my-plant && ladder check .
-git init && git add -A && git commit -m "scaffold"
+cd my-plant && git init
+tools/bootstrap.sh            # Windows: tools\bootstrap.ps1
+.venv/bin/ladder check .
+git add -A && git commit -m "scaffold"
 ```
+
+**Every project is self-contained.** `bootstrap` pins the exact LADDER
+toolchain as a git submodule at `vendor/LADDER` and installs it into a
+project-local `.venv` — a fresh machine needs only git and Python
+(`git clone --recursive`, run bootstrap, done; no separate LADDER
+install, no PyPI). Two mechanisms keep the pin honest:
+
+- the **submodule commit** records precisely which toolchain built the
+  project — bumping it is a reviewed change, gated by `ladder check`;
+- the manifest's **`requires:`** range (e.g. `">=0.2,<0.3"`) makes every
+  `ladder` command refuse to run under a version the project wasn't
+  built with, so a stray system-wide install can't silently produce
+  different artifacts.
 
 `init` does not create empty files: it scaffolds a small but complete
 **motor station** (fail-safe interlock, sealed-in start, latching
@@ -58,6 +73,8 @@ my-plant/
 ├── scenarios/<slug>.scenarios.yaml# acceptance behavior (definition of done)
 ├── iomaps/<slug>.iomap.yaml       # vendor addresses/aliases (never in the IR)
 ├── docs/generated/                # `ladder docs`: requirements → operator manual
+├── vendor/LADDER                  # the pinned toolchain (git submodule)
+├── tools/bootstrap.ps1 / .sh      # clone → working toolchain, one command
 ├── out/                           # generated artifacts — git-ignored, never edited
 ├── README.md / AGENTS.md / CLAUDE.md
 └── .github/workflows/verify.yml   # CI: `ladder check .` on every push
@@ -90,6 +107,7 @@ the contract with the tool; scenarios are the contract with reality.
 
 ```yaml
 project: MyPlant
+requires: ">=0.2,<0.3"                # toolchain version gate
 ir: ir/my_plant.yaml
 scenarios: scenarios/my_plant.scenarios.yaml
 iomap: iomaps/my_plant.iomap.yaml     # optional

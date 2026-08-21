@@ -119,3 +119,25 @@ def run_suite(project: Project, path: str | Path,
               on_raw: str = "error") -> list[ScenarioResult]:
     suite = ScenarioSuite.load(path)
     return [run_scenario(project, sc, on_raw=on_raw) for sc in suite.scenarios]
+
+
+def junit_xml(results: list[ScenarioResult], suite_name: str) -> str:
+    """Render scenario results as JUnit/xUnit XML so CI systems display
+    each acceptance scenario as a test case (TcUnit's good idea)."""
+    from xml.sax.saxutils import escape, quoteattr
+
+    failures = sum(1 for r in results if not r.passed)
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>',
+             f'<testsuite name={quoteattr(suite_name)} '
+             f'tests="{len(results)}" failures="{failures}" errors="0">']
+    for r in results:
+        if r.passed:
+            lines.append(f"  <testcase name={quoteattr(r.name)}/>")
+        else:
+            detail = r.error or str(r.failure)
+            lines.append(f"  <testcase name={quoteattr(r.name)}>")
+            lines.append(f"    <failure message={quoteattr(detail)}>"
+                         f"{escape(detail)}</failure>")
+            lines.append("  </testcase>")
+    lines.append("</testsuite>")
+    return "\n".join(lines) + "\n"

@@ -10,6 +10,30 @@ Task-sized recipes. Each stands alone; each assumes you've seen
 → keep `scenarios/` in the same commit → `ladder check .` until green.
 The [tutorial](TUTORIAL.md) walks this end-to-end.
 
+## …make a project self-contained (no LADDER install needed)?
+
+`ladder init` already scaffolds it: `tools/bootstrap.ps1` (or `.sh`) pins
+LADDER as a git submodule at `vendor/LADDER` and installs it into a
+project-local `.venv`. A colleague needs only:
+
+```bash
+git clone --recursive <project> && cd <project>
+tools/bootstrap.sh          # Windows: tools\bootstrap.ps1
+.venv/bin/ladder check .
+```
+
+The manifest's `requires: ">=0.2,<0.3"` refuses to run under any other
+toolchain version. To upgrade: `git -C vendor/LADDER pull`, re-run
+bootstrap, `ladder check`, commit the new pin only when green.
+
+## …look up a standard or vendor API offline?
+
+`docs/reference/` in the LADDER repo (so `vendor/LADDER/docs/reference/`
+inside any project) holds original-authored reference notes: IEC 61131-3,
+PLCopen tc6 XML, PROFIsafe, alarm-management (ISA-18.2) on the standards
+side; TIA Openness, SimaticML, Rockwell L5X, matiec and nuXmv on the API
+side. Search there first; go online only for normative text.
+
 ## …split a big IR into reviewable files?
 
 Point the manifest at a directory (`ir: ir`) and split:

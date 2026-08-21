@@ -39,6 +39,12 @@ class Manifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     project: str
+    requires: Optional[str] = Field(
+        default=None,
+        description="LADDER toolchain version this project was built "
+        "against, e.g. '>=0.2,<0.3'. Every command that reads the "
+        "manifest refuses to run under a version outside the range - "
+        "run tools/bootstrap to use the project's vendored toolchain.")
     ir: str = Field(description="Path to the IR document, relative to the manifest.")
     scenarios: Optional[str] = None
     iomap: Optional[str] = None
@@ -61,6 +67,35 @@ class ManifestError(ValueError):
     pass
 
 
+_CLAUSE_RE = re.compile(r"^(==|!=|>=|<=|>|<)?\s*([0-9]+(?:\.[0-9]+)*)$")
+
+
+def _vtuple(version: str, width: int) -> tuple[int, ...]:
+    parts = [int(p) for p in re.findall(r"\d+", version)]
+    return tuple((parts + [0] * width)[:width])
+
+
+def version_satisfies(installed: str, spec: str) -> bool:
+    """True when `installed` meets every comma-separated clause of `spec`.
+    Clauses: ==, !=, >=, <=, >, < followed by a dotted version (a bare
+    version means ==). Tuples are zero-padded, so '>=0.2' admits '0.2.0'."""
+    import operator
+
+    ops = {"==": operator.eq, "!=": operator.ne, ">=": operator.ge,
+           "<=": operator.le, ">": operator.gt, "<": operator.lt}
+    for clause in spec.split(","):
+        m = _CLAUSE_RE.match(clause.strip())
+        if not m:
+            raise ManifestError(f"bad requires clause {clause.strip()!r} "
+                                "(use e.g. '>=0.2,<0.3')")
+        op, want = m.group(1) or "==", m.group(2)
+        width = max(len(re.findall(r"\d+", installed)),
+                    len(re.findall(r"\d+", want)))
+        if not ops[op](_vtuple(installed, width), _vtuple(want, width)):
+            return False
+    return True
+
+
 def load_manifest(path: str | Path) -> tuple[Manifest, Path]:
     """Load ladder.yaml from a project dir (or an explicit file path).
     Returns (manifest, project_root)."""
@@ -73,6 +108,13 @@ def load_manifest(path: str | Path) -> tuple[Manifest, Path]:
     if not isinstance(data, dict):
         raise ManifestError(f"{file}: expected a YAML mapping")
     m = Manifest.model_validate(data)
+    if m.requires:
+        from ladder import __version__
+        if not version_satisfies(__version__, m.requires):
+            raise ManifestError(
+                f"{file}: project requires LADDER {m.requires!r} but this "
+                f"toolchain is {__version__} - run tools/bootstrap.ps1 (or "
+                ".sh) and use the project's vendored .venv")
     root = file.parent
     if not (root / m.ir).exists():
         raise ManifestError(f"{file}: ir file {m.ir!r} does not exist")
@@ -134,6 +176,8 @@ def init_project(directory: str | Path, name: str | None = None,
         f"iomaps/{slug}.iomap.yaml": _IOMAP,
         "design/DESIGN.md": _DESIGN,
         ".github/workflows/verify.yml": _CI,
+        "tools/bootstrap.ps1": _BOOTSTRAP_PS1,
+        "tools/bootstrap.sh": _BOOTSTRAP_SH,
     }
     written: list[Path] = []
     for rel, template in files.items():
@@ -157,6 +201,8 @@ def init_project(directory: str | Path, name: str | None = None,
 _MANIFEST = """\
 # LADDER project manifest.
 project: __NAME__
+# toolchain version gate - tools/bootstrap installs the vendored copy
+requires: ">=0.2,<0.3"
 ir: ir/__SLUG__.yaml
 scenarios: scenarios/__SLUG__.scenarios.yaml
 iomap: iomaps/__SLUG__.iomap.yaml
@@ -399,15 +445,26 @@ design/DESIGN.md        what the plant needs (the intake - edit FIRST)
 ir/__SLUG__.yaml        the logic (IR - the only hand-written source)
 scenarios/*.yaml        acceptance behavior (the definition of done)
 iomaps/*.yaml           hardware addresses/aliases per vendor
+vendor/LADDER           the pinned LADDER toolchain (git submodule)
+tools/bootstrap.ps1/.sh one command from clone to working toolchain
 out/                    generated vendor artifacts (never edit, never commit)
 ```
 
 ## Workflow
 
+The project is **self-contained**: the exact LADDER version it was built
+with is pinned as a submodule, so a fresh machine needs only git + Python.
+
 ```bash
-pip install git+__LADDER_GIT__   # once
-ladder check .          # validate + lint + scenarios + build all targets
+git clone --recursive <this repo>   # or: git submodule update --init
+tools/bootstrap.sh                  # Windows: tools\\bootstrap.ps1
+.venv/bin/ladder check .            # validate + lint + scenarios + builds
 ```
+
+The manifest's `requires:` line refuses to run under a LADDER version the
+project wasn't built with. To upgrade the toolchain: update the submodule
+(`git -C vendor/LADDER pull`), re-run bootstrap, re-run `ladder check`,
+and commit the new submodule pin only when green.
 
 Change process: update `design/DESIGN.md` → mirror it in the IR and
 scenarios → `ladder check .` until green → deploy from `out/` (Siemens:
@@ -443,6 +500,12 @@ design-intake, ir-authoring, siemens-deploy, rockwell-deploy, verification.
    the design), runs scenarios, and builds every manifest target.
 5. Hardware addresses belong in `iomaps/`, never in the IR.
 6. `out/` is generated - never edit or commit it.
+7. The toolchain is vendored at `vendor/LADDER` (submodule) and pinned by
+   the manifest's `requires:` - use the project's own `.venv` (create it
+   with `tools/bootstrap.ps1` / `.sh`), and treat a submodule bump as a
+   reviewed change gated by `ladder check`. Offline reference docs for
+   standards and vendor APIs live in `vendor/LADDER/docs/reference/` -
+   search there before searching online.
 
 Useful commands: `ladder prompt "<req>"` (the full model-facing contract),
 `ladder model ir/__SLUG__.yaml -o out` (SMV + auto fail-safe theorems for
@@ -474,9 +537,96 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: pip install git+__LADDER_GIT__
+      - run: |
+          if [ -f vendor/LADDER/pyproject.toml ]; then
+            pip install ./vendor/LADDER
+          else
+            pip install git+__LADDER_GIT__
+          fi
       - run: ladder check .
+"""
+
+_BOOTSTRAP_PS1 = """\
+# Bootstrap __NAME__: self-contained LADDER toolchain.
+# Vendors LADDER as a git submodule at vendor/LADDER and installs it into
+# a project-local .venv. Safe to re-run. Needs: git, Python 3.11+.
+$ErrorActionPreference = 'Stop'
+$root = Split-Path -Parent $PSScriptRoot
+$vendor = Join-Path $root 'vendor\\LADDER'
+$gitUrl = '__LADDER_GIT__'
+
+if (-not (Test-Path (Join-Path $vendor 'pyproject.toml'))) {
+    Push-Location $root
+    try {
+        $inRepo = $false
+        try {
+            git rev-parse --is-inside-work-tree *> $null
+            $inRepo = ($LASTEXITCODE -eq 0)
+        } catch {}
+        $gm = Join-Path $root '.gitmodules'
+        $declared = $false
+        if (Test-Path $gm) {
+            $declared = (Get-Content $gm -Raw) -match 'vendor/LADDER'
+        }
+        if ($declared) {
+            git submodule update --init --recursive vendor/LADDER
+        } elseif ($inRepo) {
+            git submodule add $gitUrl vendor/LADDER
+        } else {
+            git clone $gitUrl $vendor
+        }
+    } finally { Pop-Location }
+}
+if (-not (Test-Path (Join-Path $vendor 'pyproject.toml'))) {
+    throw 'vendor/LADDER is still missing - see the git output above'
+}
+
+$venvPy = Join-Path $root '.venv\\Scripts\\python.exe'
+if (-not (Test-Path $venvPy)) {
+    $py = Get-Command py -ErrorAction SilentlyContinue
+    if ($py) { & py -3 -m venv (Join-Path $root '.venv') }
+    else { python -m venv (Join-Path $root '.venv') }
+}
+& $venvPy -m pip install --quiet --upgrade pip
+& $venvPy -m pip install --quiet -e $vendor
+$ver = & $venvPy -c 'import ladder; print(ladder.__version__)'
+Write-Host "LADDER $ver ready - next: .venv\\Scripts\\ladder check ."
+"""
+
+_BOOTSTRAP_SH = """\
+#!/usr/bin/env sh
+# Bootstrap __NAME__: self-contained LADDER toolchain (POSIX twin of
+# bootstrap.ps1). Safe to re-run. Needs: git, Python 3.11+.
+set -e
+root="$(cd "$(dirname "$0")/.." && pwd)"
+vendor="$root/vendor/LADDER"
+git_url='__LADDER_GIT__'
+
+if [ ! -f "$vendor/pyproject.toml" ]; then
+    cd "$root"
+    if [ -f .gitmodules ] && grep -q 'vendor/LADDER' .gitmodules; then
+        git submodule update --init --recursive vendor/LADDER
+    elif git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        git submodule add "$git_url" vendor/LADDER
+    else
+        git clone "$git_url" "$vendor"
+    fi
+fi
+[ -f "$vendor/pyproject.toml" ] || {
+    echo 'vendor/LADDER is still missing - see the git output above' >&2
+    exit 1
+}
+
+if [ ! -x "$root/.venv/bin/python" ]; then
+    python3 -m venv "$root/.venv"
+fi
+"$root/.venv/bin/python" -m pip install --quiet --upgrade pip
+"$root/.venv/bin/python" -m pip install --quiet -e "$vendor"
+ver="$("$root/.venv/bin/python" -c 'import ladder; print(ladder.__version__)')"
+echo "LADDER $ver ready - next: .venv/bin/ladder check ."
 """

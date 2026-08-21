@@ -10,16 +10,24 @@ this machine; `[eng]` is engineering that can proceed any time.
 
 ## Where LADDER sits (research + ecosystem context)
 
-Academic work on LLM PLC programming — LLM4PLC, Agents4PLC, online-
-feedback ST training — targets **raw Structured Text generation**.
-LADDER's niche is different and, as far as we know, unoccupied: a
-*declarative, verifiable, vendor-neutral IR* that a **human authors
-first** (the LLM is an optional catalyst), with *deterministic* lowering,
-*formal verification*, and *real vendor toolchain* deployment. The open
-ecosystem we interoperate with: matiec (CI compiles our IEC text), the
+A full prior-art survey lives in [RELATED-WORK](RELATED-WORK.md)
+(2026-08). The honest summary: config→PLC-code generation is standard
+lab practice (CERN UNICOS, ESS PLC Factory, ALBA), formal verification
+of PLC code is production-proven (CERN PLCverif, incl. on a personnel
+safety system), and LLM→ST pipelines exist (LLM4PLC, Agents4PLC). The
+**combination** that appears unoccupied is LADDER's: a human-first,
+vendor-neutral *semantic* IR with deterministic lowering to five
+backends, **auto-generated safety theorems per element type** (every
+prior system needs hand-written properties), scenario simulation +
+proof + docs from one artifact, in self-contained git/CI projects, with
+the LLM as an optional, schema-gated assistant. Closest prior art:
+CERN's PLCspecif (spec→Siemens ST + verification, research prototype).
+Ecosystem we interoperate with: matiec (CI compiles our IEC text), the
 official PLCopen tc6 XSD (CI validates our XML), nuXmv (proves our
 auto-theorems), IronPLC / OpenPLC / Beremiz (future runtime targets),
-blark and the `l5x` Python lib (future reverse adoption).
+blark and the `l5x` Python lib (future reverse adoption). Best
+practices adopted from the survey are tracked in RELATED-WORK's table
+(first landed: JUnit XML scenario output, TcUnit's lesson).
 
 ---
 

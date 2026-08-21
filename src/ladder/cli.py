@@ -269,6 +269,8 @@ def cmd_init(args) -> int:
         print(f"  {f}")
     print(f"created LADDER project in {args.directory} - next:\n"
           f"  ladder check {args.directory}\n"
+          "then make it self-contained (pins LADDER as vendor/LADDER):\n"
+          f"  git -C {args.directory} init && tools\\bootstrap.ps1\n"
           "then replace the starter motor station: edit design/DESIGN.md "
           "first, mirror it in ir/, keep scenarios/ in sync.")
     return 0
@@ -312,6 +314,16 @@ def cmd_check(args) -> int:
             print(f"  {r}", file=sys.stderr)
         print(f"scenarios  {'OK' if not bad else 'FAILED'} "
               f"({len(results) - len(bad)}/{len(results)} passed)")
+        if getattr(args, "junit", None):
+            from ladder.scenario import junit_xml
+
+            junit_path = Path(args.junit)
+            if not junit_path.is_absolute():
+                junit_path = root / junit_path
+            junit_path.parent.mkdir(parents=True, exist_ok=True)
+            junit_path.write_text(junit_xml(results, manifest.project),
+                                  encoding="utf-8")
+            print(f"           junit -> {junit_path}")
         failed |= bool(bad)
     else:
         print("scenarios  none declared (add some - they are the definition of done)")
@@ -532,6 +544,9 @@ def main(argv: list[str] | None = None) -> int:
                                      "scenarios + build")
     p.add_argument("directory", nargs="?", default=".",
                    help="project root containing ladder.yaml (default: .)")
+    p.add_argument("--junit", metavar="FILE", default=None,
+                   help="also write scenario results as JUnit XML "
+                        "(CI-renderable), e.g. out/scenarios.xml")
     p.set_defaults(fn=cmd_check)
 
     p = sub.add_parser("deploy", help="materialize the vendor IDE project(s) "

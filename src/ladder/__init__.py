@@ -8,6 +8,6 @@ Vendor-agnostic PLC program generation:
                      PLCopen XML / IEC 61131-10, Beckhoff TwinCAT)
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from ladder.ir.model import Project  # noqa: F401

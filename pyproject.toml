@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ladder"
-version = "0.1.0"
+version = "0.2.0"
 description = "LADDER - LLM-Assisted Design & Deployment of Engineering Routines. Vendor-agnostic PLC program generation: high-level IR -> vendor backends (Siemens TIA, Rockwell Studio 5000, PLCopen XML, Beckhoff TwinCAT)."
 readme = "README.md"
 requires-python = ">=3.11"

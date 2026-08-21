@@ -22,6 +22,8 @@ Pick your entry point by what you're doing — the slope is deliberate:
 | [BACKENDS](BACKENDS.md) | writing a vendor backend / plugin |
 | [VERSIONING](VERSIONING.md) | IR semver, the RFC process, the road to 1.0 |
 | [ROADMAP](ROADMAP.md) | where the project is and what's next |
+| [RELATED-WORK](RELATED-WORK.md) | prior-art survey, gap analysis, adopted best practices |
+| [reference/](reference/README.md) | offline library: IEC/PLCopen/PROFIsafe/ISA notes + vendor API notes (TIA Openness, SimaticML, L5X, TwinCAT, matiec, nuXmv) — search here before searching online |
 
 ## For agents and LLMs
 

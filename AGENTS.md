@@ -120,4 +120,16 @@ repository scaffolded by `ladder init <dir>` and gated by `ladder check`
 (manifest-driven validate + lint + scenarios + build). Layout and change
 process: [docs/PROJECT-LAYOUT.md](docs/PROJECT-LAYOUT.md). The scaffold
 ships a working motor-station starter, so a new project is green from
-its first commit.
+its first commit. Projects are self-contained: LADDER rides along as the
+`vendor/LADDER` submodule, pinned by the manifest's `requires:` and
+installed by `tools/bootstrap`.
+
+## Look things up offline first
+
+[docs/reference/](docs/reference/README.md) is an original-authored
+library covering the standards (IEC 61131-3, PLCopen tc6, PROFIsafe,
+ISA-18.2, IEC 61508/61511) and every vendor API the backends drive
+(TIA Openness incl. the V19/V21 quirk table, SimaticML/FlgNet, Rockwell
+L5X, TwinCAT, matiec, nuXmv). Search there before searching online;
+go online only for normative text or gaps — and when a live experiment
+teaches something new, record it there in the same commit.
