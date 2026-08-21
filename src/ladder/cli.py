@@ -335,6 +335,18 @@ def cmd_check(args) -> int:
     return 1 if failed else 0
 
 
+def cmd_docs(args) -> int:
+    from ladder.docgen import generate_docs, load_doc_inputs
+
+    di = load_doc_inputs(args.path)
+    outdir = Path(args.out) if args.out else Path(args.path) / "docs" / "generated"
+    files = generate_docs(di, outdir)
+    for f in files:
+        print(f"  {f}")
+    print(f"documentation package: {len(files)} document(s) -> {outdir}")
+    return 0
+
+
 def cmd_targets(args) -> int:
     for name in sorted(registry):
         b = registry[name]
@@ -435,6 +447,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("directory", nargs="?", default=".",
                    help="project root containing ladder.yaml (default: .)")
     p.set_defaults(fn=cmd_check)
+
+    p = sub.add_parser("docs", help="generate the documentation package "
+                                    "(requirements, software spec, conventions, "
+                                    "developer + operator manuals, verification "
+                                    "report) from the IR")
+    p.add_argument("path", nargs="?", default=".",
+                   help="project root with ladder.yaml, or an IR file/dir")
+    p.add_argument("-o", "--out", default=None,
+                   help="output directory (default: <path>/docs/generated)")
+    p.set_defaults(fn=cmd_docs)
 
     p = sub.add_parser("targets", help="list available backends")
     p.set_defaults(fn=cmd_targets)
