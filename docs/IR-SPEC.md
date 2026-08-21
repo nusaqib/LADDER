@@ -160,6 +160,48 @@ latched until it clears and is acked again). `first_out` receives the
 the theorems `unacked -> active` and `active <-> first_out <> 0` for
 nuXmv.
 
+### dual_channel — 1oo2 two-channel evaluation
+
+```yaml
+- element: dual_channel
+  id: DC_gate
+  channel_a: gate_sw1        # fail-safe sense, 1 = OK
+  channel_b: gate_sw2
+  output: gate_ok            # BOOL: both channels OK, no latched fault
+  discrepancy_time: T#500ms  # optional: enables discrepancy monitoring
+  fault: gate_disc_flt       # optional BOOL: latched discrepancy
+  ack: area_reset            # required with discrepancy_time
+  ack_required: gate_ack_req # optional BOOL: fault latched, channels agree
+```
+
+The shape of certified safety evaluations (Siemens `EV1oo2DI`, redundant
+limit switches, CW/CCW chains): channels disagreeing longer than the
+window latch a fault that forces the output FALSE until acknowledged with
+the channels back in agreement. `ladder model` auto-generates
+`output -> chA AND chB` for nuXmv. Models the logic only — no
+QBAD/passivation/PROFIsafe; the output is **not** certified safety logic.
+
+### search_chain — sequential area search (PPS)
+
+```yaml
+- element: search_chain
+  id: SRCH_area
+  precondition: area_inputs_ok      # chain armed only while this holds
+  complete: area_search_complete
+  stations:                         # in WALK ORDER
+    - {name: SE01, key: se01_key_ok, latched: db.SE01.Latched}
+    - {name: SE02, key: se02_key_ok}   # latch synthesized if omitted
+```
+
+Locked semantics (accelerator-PPS practice): a station latches on the
+**rising edge** of its key (a key held early cannot ride the chain) and
+only while its predecessor is latched (station 1: while `precondition`
+holds); losing the predecessor clears the station, so a breach cascades
+down the walk order and drops `complete` within one scan; **nothing else
+clears a station** — never wire an acknowledge here. Known residual: all
+keys rising within one scan completes the chain that scan. Auto-theorems:
+`complete -> precondition` and `station_i -> station_{i-1}` per pair.
+
 ### timer
 
 ```yaml

@@ -41,6 +41,8 @@ from ladder.ir.model import (
     AlarmEl,
     AlarmGroupEl,
     AssignEl,
+    DualChannelEl,
+    SearchChainEl,
     Cond,
     InterlockEl,
     PatternEl,
@@ -343,6 +345,35 @@ def _validate_program(project: Project, prog: Program,
                 if fo_type is not None and fo_type not in STATE_TYPES:
                     res.add("V06", w, f"first_out {el.first_out!r} must be "
                             f"INT or DINT, is {fo_type}")
+        elif isinstance(el, DualChannelEl):
+            check_read(el.channel_a, w)
+            check_read(el.channel_b, w)
+            check_write(el.output, w, want_bool=True)
+            if el.discrepancy_time and not el.ack:
+                res.add("V05", w, "discrepancy monitoring requires an ack signal")
+            for opt in (el.fault, el.ack_required):
+                if opt and not el.discrepancy_time:
+                    res.add("V05", w, "fault/ack_required outputs require "
+                            "discrepancy_time to be set")
+            if el.ack:
+                check_read(el.ack, w)
+            if el.fault:
+                check_write(el.fault, w, want_bool=True)
+            if el.ack_required:
+                check_write(el.ack_required, w, want_bool=True)
+        elif isinstance(el, SearchChainEl):
+            check_read(el.precondition, w)
+            station_names: set[str] = set()
+            for st in el.stations:
+                sw = f"{w}/{st.name}"
+                _check_ident(st.name, sw, res)
+                if st.name in station_names:
+                    res.add("V02", sw, "duplicate station name in search chain")
+                station_names.add(st.name)
+                check_read(st.key, sw)
+                if st.latched:
+                    check_write(st.latched, sw, want_bool=True)
+            check_write(el.complete, w, want_bool=True)
         elif isinstance(el, TimerEl):
             check_read(el.input, w)
             if el.done:
@@ -370,7 +401,8 @@ def _validate_program(project: Project, prog: Program,
 
 
 #: elements a graphic boolean language (LD / FBD) can express
-_GRAPHIC_ELEMENTS = {"assign", "interlock", "alarm", "alarm_group", "timer"}
+_GRAPHIC_ELEMENTS = {"assign", "interlock", "alarm", "alarm_group", "timer",
+                     "dual_channel", "search_chain"}
 
 
 def _check_language(prog: Program, pw: str, resolve, res: ValidationResult) -> None:
@@ -455,6 +487,21 @@ def lint_project(project: Project) -> list[Issue]:
                 for t in (el.active, el.unacked, el.first_out):
                     if t:
                         add_write(t, prog.name)
+            elif isinstance(el, DualChannelEl):
+                reads.add(_lint_root(el.channel_a))
+                reads.add(_lint_root(el.channel_b))
+                if el.ack:
+                    reads.add(_lint_root(el.ack))
+                for t in (el.output, el.fault, el.ack_required):
+                    if t:
+                        add_write(t, prog.name)
+            elif isinstance(el, SearchChainEl):
+                add_reads(el.precondition)
+                for st in el.stations:
+                    reads.add(_lint_root(st.key))
+                    if st.latched:
+                        add_write(st.latched, prog.name)
+                add_write(el.complete, prog.name)
             elif isinstance(el, TimerEl):
                 add_reads(el.input)
                 for t in (el.done, el.elapsed):
@@ -515,6 +562,10 @@ def _element_writes(el) -> list[str]:
     if isinstance(el, AlarmGroupEl):
         return ([t for t in (el.active, el.unacked, el.first_out) if t]
                 + [m.output for m in el.alarms if m.output])
+    if isinstance(el, DualChannelEl):
+        return [t for t in (el.output, el.fault, el.ack_required) if t]
+    if isinstance(el, SearchChainEl):
+        return [st.latched for st in el.stations if st.latched] + [el.complete]
     if isinstance(el, TimerEl):
         return [t for t in (el.done, el.elapsed) if t]
     if isinstance(el, ScaleEl):

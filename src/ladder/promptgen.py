@@ -62,6 +62,14 @@ and plain IEC 61131-3 artifacts. You never write vendor syntax.
   `active` lamp, optional `unacked` horn (re-sounds on each new alarm) and
   `first_out` INT capture (1-based member index of the first trip; 0=none).
   Prefer this over N separate alarms whenever alarms share an ack/horn.
+- `dual_channel` - 1oo2 two-channel evaluation (redundant safety inputs):
+  output TRUE only while both channels are OK; optional `discrepancy_time`
+  latches a `fault` needing `ack` (channels must agree again). Models the
+  logic of certified evaluations; NOT itself certified safety.
+- `search_chain` - sequential area-search chain (PPS practice): stations
+  latch on the rising edge of their key in walk order while `precondition`
+  holds; any breach cascades and clears `complete` within one scan; an
+  ack/reset must never be wired to it.
 - `timer` - standalone TON/TOF/TP with `preset`, optional `done`/`elapsed`.
 - `state_machine` - named states with per-scan `do` assigns and ordered
   `transitions` (first match wins); lowered to a CASE statement.

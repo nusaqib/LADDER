@@ -243,6 +243,84 @@ class AlarmGroupEl(BaseModel):
     description: Optional[str] = None
 
 
+class DualChannelEl(BaseModel):
+    """Two-channel (1oo2) input evaluation, the shape of certified safety
+    evaluations (Siemens EV1oo2DI, redundant limit switches, CW/CCW chains).
+
+    Both channels are fail-safe sense (1 = OK). `output` is TRUE only while
+    both channels are OK. With `discrepancy_time` set, channels disagreeing
+    for longer than that latches a discrepancy `fault` (forcing the output
+    FALSE) which clears only on an `ack` rising edge once the channels agree
+    again; `ack_required` mirrors the ready-to-acknowledge state.
+
+    This models the logic, not the certified F-runtime (no QBAD/passivation,
+    no PROFIsafe): rendering into a certified instruction is a vendor-engine
+    concern and the output is NOT certified safety logic.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    element: Literal["dual_channel"]
+    id: str
+    channel_a: str
+    channel_b: str
+    output: str = Field(description="BOOL: both channels OK (and no latched fault).")
+    discrepancy_time: Optional[str] = Field(
+        default=None, description="IEC TIME literal; enables discrepancy monitoring.")
+    fault: Optional[str] = Field(
+        default=None, description="Optional BOOL: latched discrepancy fault.")
+    ack: Optional[str] = Field(
+        default=None, description="Acknowledge signal (required with discrepancy_time).")
+    ack_required: Optional[str] = Field(
+        default=None, description="Optional BOOL: fault latched and channels agree again.")
+    description: Optional[str] = None
+
+    @field_validator("discrepancy_time")
+    @classmethod
+    def _check_time(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            X.parse_time_literal(v)
+        return v
+
+
+class SearchStation(BaseModel):
+    """One station of a search chain."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    key: str = Field(description="Station key signal (evaluated, 1 = turned).")
+    latched: Optional[str] = Field(
+        default=None, description="Optional BOOL tag holding this station's latch "
+        "(observable, e.g. a DB member); synthesized when omitted.")
+    description: Optional[str] = None
+
+
+class SearchChainEl(BaseModel):
+    """Sequential area-search chain (personnel protection systems).
+
+    Semantics locked in lowering, per accelerator-PPS practice:
+
+    - station i latches on the RISING EDGE of its key (a key already held
+      when its predecessor latches does not ride the chain), and only while
+      its predecessor is latched (station 1: while `precondition` holds);
+    - any loss of the predecessor clears the station, so a breach anywhere
+      cascades and clears `complete` within one scan (stations are emitted
+      in walk order);
+    - nothing else clears a station - an acknowledge/reset signal must NOT
+      be wired here, or acknowledging a channel fault would wipe a search;
+    - known residual: all keys rising within one scan completes the chain
+      in that scan (the walk-order trade; document it in the project).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    element: Literal["search_chain"]
+    id: str
+    precondition: Cond = Field(description="Chain armed only while this holds "
+                               "(e.g. the area's all-inputs-OK).")
+    stations: list[SearchStation] = Field(min_length=1)
+    complete: str = Field(description="BOOL: last station latched.")
+    description: Optional[str] = None
+
+
 class TimerEl(BaseModel):
     """Standalone IEC timer (TON / TOF / TP)."""
 
@@ -351,8 +429,8 @@ class RawStEl(BaseModel):
 
 
 LogicElement = Annotated[
-    Union[AssignEl, InterlockEl, AlarmEl, AlarmGroupEl, TimerEl,
-          StateMachineEl, ScaleEl, PatternEl, RawStEl],
+    Union[AssignEl, InterlockEl, AlarmEl, AlarmGroupEl, DualChannelEl,
+          SearchChainEl, TimerEl, StateMachineEl, ScaleEl, PatternEl, RawStEl],
     Field(discriminator="element"),
 ]
 

@@ -39,7 +39,14 @@ from ladder.ir.lower import (
     Stmt,
     lower_project,
 )
-from ladder.ir.model import AlarmGroupEl, InterlockEl, Project, compile_cond
+from ladder.ir.model import (
+    AlarmGroupEl,
+    DualChannelEl,
+    InterlockEl,
+    Project,
+    SearchChainEl,
+    compile_cond,
+)
 
 
 class ModelError(ValueError):
@@ -259,14 +266,32 @@ def _int_domain(name: str, stmts: list[Stmt], initial: int) -> str:
 
 def emit_smv(project: Project, lp: LoweredProgram) -> str:
     prog = lp.program
-    complex_roots = {t.name for t in (*project.tags, *prog.variables) if t.is_complex}
-    if complex_roots & {r.root for r in _all_refs(lp.statements)}:
-        raise ModelError("UDT/array tags are not model-checkable yet")
-    tag_types = {t.name: t.type.upper() for t in project.tags}
-    tag_types.update({t.name: t.type.upper() for t in prog.variables})
+    all_tags = {t.name: t for t in (*project.tags, *prog.variables)}
+    types_map = {t.name: t for t in project.types}
+    synth_timers = {v.name for v in lp.synth if v.kind == "timer"}
+
+    def flat_type(r: X.Ref) -> str:
+        """Type of a (possibly UDT-member) reference; arrays are rejected."""
+        from ladder.ir.validate import resolve_path
+
+        if len(r.path) > 1 and r.path[0] in synth_timers:
+            return "BOOL"  # timer .Q
+        tag = all_tags.get(r.path[0])
+        if tag is None:
+            return "BOOL"  # synthesized edge memory / latch
+        if tag.array is not None:
+            raise ModelError("array tags are not model-checkable yet")
+        if len(r.path) == 1:
+            return tag.type.upper()
+        final, err = resolve_path(types_map, tag, tuple(r.path))
+        if err:
+            raise ModelError(err)
+        return final
+
+    ref_types: dict[str, str] = {}
+    for r in _all_refs(lp.statements):
+        ref_types[_var(r.path)] = flat_type(r)
     initials = {t.name: t.initial for t in (*project.tags, *prog.variables)}
-    for v in lp.synth:
-        tag_types[v.name] = "TIMER" if v.kind == "timer" else "BOOL"
 
     written = _written_vars(lp.statements)
     read = _read_roots(lp.statements)
@@ -279,19 +304,17 @@ def emit_smv(project: Project, lp: LoweredProgram) -> str:
              "-- timers over-approximated: proofs hold for every preset/scan rate",
              "MODULE main", "VAR"]
     for name in inputs:
-        base = name.split("_Q")[0]
-        t = tag_types.get(name, tag_types.get(base, "BOOL"))
+        t = ref_types.get(name, "BOOL")
         if t not in ("BOOL",):
             raise ModelError(f"free input {name} has type {t}; only BOOL inputs supported")
         lines.append(f"  {name} : boolean;  -- free input")
     int_inits: dict[str, int] = {}
     for name in sorted(written):
-        base = name[:-2] if name.endswith("_Q") else name
-        t = "BOOL" if name.endswith("_Q") else tag_types.get(base, "BOOL")
+        t = "BOOL" if name.endswith("_Q") else ref_types.get(name, "BOOL")
         if t == "BOOL":
             lines.append(f"  {name} : boolean;")
         elif t in ("INT", "DINT"):
-            init = int(initials.get(base) or 0)
+            init = int(initials.get(name) or 0)
             int_inits[name] = init
             lines.append(f"  {name} : {_int_domain(name, lp.statements, init)};")
         else:
@@ -326,6 +349,22 @@ def emit_smv(project: Project, lp: LoweredProgram) -> str:
                 fo = _var(tuple(el.first_out.split(".")))
                 lines.append(f"-- {el.id}: first-out is nonzero exactly while the group is active")
                 lines.append(f"INVARSPEC ({active} <-> ({fo} != 0));")
+        elif isinstance(el, DualChannelEl):
+            a = _var(tuple(el.channel_a.split(".")))
+            b = _var(tuple(el.channel_b.split(".")))
+            o = _var(tuple(el.output.split(".")))
+            lines.append(f"-- {el.id}: never evaluates OK with a channel down")
+            lines.append(f"INVARSPEC ({o} -> ({a} & {b}));")
+        elif isinstance(el, SearchChainEl):
+            lats = [_var(tuple(st.latched.split("."))) if st.latched
+                    else f"{el.id}_{st.name}_lat" for st in el.stations]
+            comp = _var(tuple(el.complete.split(".")))
+            pre = _smv_expr(compile_cond(el.precondition), _PropCtx())
+            lines.append(f"-- {el.id}: search never complete while the precondition is down")
+            lines.append(f"INVARSPEC ({comp} -> {pre});")
+            lines.append(f"-- {el.id}: stations latch strictly in walk order")
+            for i in range(1, len(lats)):
+                lines.append(f"INVARSPEC ({lats[i]} -> {lats[i - 1]});")
     return "\n".join(lines) + "\n"
 
 

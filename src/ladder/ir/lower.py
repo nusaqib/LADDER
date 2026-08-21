@@ -27,6 +27,8 @@ from ladder.ir.model import (
     AlarmEl,
     AlarmGroupEl,
     AssignEl,
+    DualChannelEl,
+    SearchChainEl,
     InterlockEl,
     Program,
     Project,
@@ -150,6 +152,10 @@ def _lower_element(el, synth: list[SynthVar], types: dict[str, str]) -> list[Stm
         return _lower_alarm(el, synth)
     if isinstance(el, AlarmGroupEl):
         return _lower_alarm_group(el, synth)
+    if isinstance(el, DualChannelEl):
+        return _lower_dual_channel(el, synth)
+    if isinstance(el, SearchChainEl):
+        return _lower_search_chain(el, synth)
     if isinstance(el, TimerEl):
         return _lower_timer(el, synth)
     if isinstance(el, StateMachineEl):
@@ -304,6 +310,82 @@ def _lower_alarm_group(el: AlarmGroupEl, synth: list[SynthVar]) -> list[Stmt]:
             out.append(SAssign(_ref(m.output), _ref(lats[i])))
     if fo is not None:
         out.append(SIf(X.Un("NOT", _ref(el.active)), [SAssign(fo, X.Lit(0, "int"))]))
+    return out
+
+
+def _lower_dual_channel(el: DualChannelEl, synth: list[SynthVar]) -> list[Stmt]:
+    """1oo2 evaluation. Without discrepancy monitoring the output is the
+    plain series evaluation; with it, a disagreement outlasting the window
+    latches a fault that forces the output FALSE until acknowledged with
+    the channels back in agreement."""
+    out = _header(el, "dual_channel (1oo2)")
+    a, b = _ref(el.channel_a), _ref(el.channel_b)
+    output = _ref(el.output)
+    if not el.discrepancy_time:
+        out.append(SAssign(output, X.Bin("AND", a, b)))
+        return out
+    inst = f"{el.id}_disc"
+    synth.append(SynthVar(inst, "timer", "TON",
+                          comment=f"discrepancy window for {el.id}"))
+    out.append(STimerCall(inst, "TON", X.Bin("<>", a, b),
+                          X.parse_time_literal(el.discrepancy_time)))
+    fault = _ref(el.fault) if el.fault else _ref(f"{el.id}_flt")
+    if not el.fault:
+        synth.append(SynthVar(f"{el.id}_flt", "bool",
+                              comment=f"latched discrepancy fault for {el.id}"))
+    out.append(SIf(X.Ref((inst, "Q")), [SAssign(fault, X.Lit(True, "bool"))]))
+    assert el.ack is not None  # enforced by validation V05
+    mem = f"{el.id}_ack_mem"
+    ack_edge = _rising_edge(el.ack, mem, synth)
+    agree = X.Bin("=", a, b)
+    out.append(SIf(X.Bin("AND", ack_edge, agree),
+                   [SAssign(fault, X.Lit(False, "bool"))]))
+    out.append(SAssign(_ref(mem), _ref(el.ack)))
+    out.append(SAssign(output, X.all_of([a, b, X.Un("NOT", fault)])))
+    if el.ack_required:
+        out.append(SAssign(_ref(el.ack_required), X.Bin("AND", fault, agree)))
+    return out
+
+
+def _lower_search_chain(el: SearchChainEl, synth: list[SynthVar]) -> list[Stmt]:
+    """Sequential search chain. Station i sets on the rising edge of its
+    key while its predecessor holds (station 1: while the precondition
+    holds) and clears the scan the predecessor is lost, so a breach
+    cascades down the walk order within one scan. Key edge memories update
+    in trailing statements, after every station has run, so a key held
+    early cannot ride the chain."""
+    out = _header(el, "search_chain")
+    out.append(SComment("walk order: " + " -> ".join(s.name for s in el.stations)))
+    lats: list[X.Ref] = []
+    for st in el.stations:
+        if st.latched:
+            lats.append(_ref(st.latched))
+        else:
+            name = f"{el.id}_{st.name}_lat"
+            synth.append(SynthVar(name, "bool", comment=f"search latch {st.name}"))
+            lats.append(_ref(name))
+    prevs: list[str] = []
+    for st in el.stations:
+        prev = f"{el.id}_{st.name}_prev"
+        synth.append(SynthVar(prev, "bool",
+                              comment=f"previous-scan key for {st.name}"))
+        prevs.append(prev)
+    for i, st in enumerate(el.stations):
+        pred: X.Expr = compile_cond(el.precondition) if i == 0 else lats[i - 1]
+        label = f"station {i + 1}: {st.name}"
+        if st.description:
+            label += f" - {st.description}"
+        out.append(SComment(label))
+        # clear the moment the predecessor is lost (breach cascade)
+        out.append(SIf(X.Un("NOT", pred), [SAssign(lats[i], X.Lit(False, "bool"))]))
+        # set only on the key's rising edge while the predecessor holds
+        out.append(SIf(
+            X.all_of([pred, _ref(st.key), X.Un("NOT", _ref(prevs[i]))]),
+            [SAssign(lats[i], X.Lit(True, "bool"))]))
+    out.append(SComment("trailing key edge memories (after every station has run)"))
+    for st, prev in zip(el.stations, prevs):
+        out.append(SAssign(_ref(prev), _ref(st.key)))
+    out.append(SAssign(_ref(el.complete), lats[-1]))
     return out
 
 
