@@ -3,8 +3,46 @@
 import pytest
 
 from ladder.ir.lower import lower_project
+from ladder.ir.model import Project
 from ladder.model_check import ModelError, emit_smv, load_properties
-from tests.test_safety_elements import _project
+
+
+def _project():
+    return Project.model_validate({
+        "name": "SafetyDemo",
+        "types": [{"name": "SafeInput",
+                   "members": [{"name": "Eval_OK"}, {"name": "Latched"}]}],
+        "tags": [
+            {"name": "k1a", "type": "BOOL", "direction": "input"},
+            {"name": "k1b", "type": "BOOL", "direction": "input"},
+            {"name": "k2a", "type": "BOOL", "direction": "input"},
+            {"name": "k2b", "type": "BOOL", "direction": "input"},
+            {"name": "door_ok", "type": "BOOL", "direction": "input"},
+            {"name": "area_reset", "type": "BOOL", "direction": "input"},
+            {"name": "key1", "type": "SafeInput"},
+            {"name": "key2", "type": "SafeInput"},
+            {"name": "inputs_ok", "type": "BOOL", "direction": "output"},
+            {"name": "search_done", "type": "BOOL", "direction": "output"},
+            {"name": "k1_flt", "type": "BOOL", "direction": "output"},
+        ],
+        "programs": [{"name": "Safety", "logic": [
+            {"element": "dual_channel", "id": "DC_k1",
+             "channel_a": "k1a", "channel_b": "k1b",
+             "output": "key1.Eval_OK", "discrepancy_time": "T#500ms",
+             "fault": "k1_flt", "ack": "area_reset"},
+            {"element": "dual_channel", "id": "DC_k2",
+             "channel_a": "k2a", "channel_b": "k2b",
+             "output": "key2.Eval_OK"},
+            {"element": "assign", "target": "inputs_ok", "value": "door_ok"},
+            {"element": "search_chain", "id": "SRCH",
+             "precondition": "inputs_ok",
+             "stations": [
+                 {"name": "S1", "key": "key1.Eval_OK", "latched": "key1.Latched"},
+                 {"name": "S2", "key": "key2.Eval_OK", "latched": "key2.Latched"},
+             ],
+             "complete": "search_done"},
+        ]}],
+    })
 
 
 def _props_file(tmp_path, text):
