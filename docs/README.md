@@ -1,5 +1,9 @@
 # Documentation
 
+**Not sure where to start?** [LEARNING-PATHS](LEARNING-PATHS.md) has a
+track for each kind of user — PLC newcomer, controls engineer,
+reviewer/approver, tool contributor.
+
 Pick your entry point by what you're doing — the slope is deliberate:
 
 ## Learn (in order)

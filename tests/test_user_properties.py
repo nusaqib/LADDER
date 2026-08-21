@@ -69,6 +69,32 @@ properties:
     assert "INVARSPEC ((!(k1_flt & key1_Eval_OK)));" in smv
 
 
+def test_pattern_sugar_desugars(tmp_path):
+    f = _props_file(tmp_path, """\
+properties:
+  - program: Safety
+    never: k1_flt AND key1.Eval_OK
+  - program: Safety
+    mutex: [inputs_ok, k1_flt]
+  - program: Safety
+    if: search_done
+    then: key1.Latched
+""")
+    props = load_properties(f)["Safety"]
+    assert props[0]["always"].startswith("NOT (")
+    assert "NOT (inputs_ok AND k1_flt)" in props[1]["always"]
+    assert props[2]["given"] == "search_done"
+    p = _project()
+    smv = emit_smv(p, lower_project(p)["Safety"], props)
+    assert smv.count("INVARSPEC") >= 3 + 4  # 3 user + auto-theorems
+
+
+def test_bad_mutex_rejected(tmp_path):
+    f = _props_file(tmp_path, "properties:\n  - program: P\n    mutex: [one]\n")
+    with pytest.raises(ModelError, match="mutex"):
+        load_properties(f)
+
+
 def test_malformed_property_rejected(tmp_path):
     f = _props_file(tmp_path, "properties:\n  - program: Safety\n")
     with pytest.raises(ModelError, match="always"):

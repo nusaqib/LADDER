@@ -307,8 +307,19 @@ scenarios:
       - expect: {overload_alarm: true}
       - set: {overload_ok: true}
       - scan: {}
+      - expect: {overload_alarm: true}     # LATCHED: clear alone is not enough
       - pulse: ack_pb
       - expect: {overload_alarm: false}
+
+  - name: overload_trip_stops_the_motor
+    steps:
+      - set: {estop_ok: true, overload_ok: true, stop_ok: true}
+      - pulse: reset_pb
+      - pulse: start_pb
+      - expect: {motor_run: true}
+      - set: {overload_ok: false}
+      - scan: {}
+      - expect: {run_permit: false, motor_run: false}
 """
 
 _IOMAP = """\

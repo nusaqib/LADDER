@@ -117,8 +117,9 @@ beckhoff, iec).
 - ✅ Versioning + RFC process documented ([VERSIONING](VERSIONING.md));
   versioned tool targets (`name@version`) separate the tool axis from
   the IR axis.
-- ⬜ `[eng]` Conformance suite packaging (the examples + scenario corpus
-  as a runnable backend-conformance check).
+- ✅ Conformance suite packaged: `ladder conformance -t <backend>` runs
+  the examples + benchmark corpus through any backend (incl. entry-point
+  plugins) — the compatibility contract for M6.
 - ⬜ `[user]` Field-name review against adopted programs from a second
   facility; then freeze IR 1.0.
 - ⬜ `[user]` Two independent users outside the lab.

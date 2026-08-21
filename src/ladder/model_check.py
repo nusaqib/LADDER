@@ -273,6 +273,18 @@ def load_properties(path) -> dict[str, list[dict]]:
             given: BTA.Inputs_OK          # optional antecedent
             always: NOT BTA.Search_Complete OR BTA.Inputs_OK
 
+    Fill-in-the-blank **patterns** (PLCverif practice) desugar to the
+    same invariant form, so reviewers write English-shaped rows instead
+    of logic:
+
+          - program: Safety
+            never: horn AND NOT lamp        # NOT (expr), always
+          - program: Safety
+            mutex: [fill_vlv_cmd, drain_vlv_cmd]   # at most one TRUE
+          - program: Safety
+            if: search_done                 # if/then == given/always
+            then: key1.Latched
+
     Expressions are neutral IR syntax (dotted UDT paths welcome) over the
     program's variables, evaluated on the current state; each becomes
     INVARSPEC ((given) -> (always)).
@@ -283,8 +295,28 @@ def load_properties(path) -> dict[str, list[dict]]:
     data = _yaml.safe_load(_Path(path).read_text(encoding="utf-8")) or {}
     out: dict[str, list[dict]] = {}
     for p in data.get("properties", []):
-        if "program" not in p or "always" not in p:
-            raise ModelError(f"{path}: every property needs 'program' and 'always'")
+        if "program" not in p:
+            raise ModelError(f"{path}: every property needs 'program'")
+        p = dict(p)
+        if "never" in p:
+            p["always"] = f"NOT ({p.pop('never')})"
+            p.setdefault("description", f"never: {p['always'][5:-1]}")
+        elif "mutex" in p:
+            names = p.pop("mutex")
+            if not isinstance(names, list) or len(names) < 2:
+                raise ModelError(f"{path}: 'mutex' needs a list of 2+ signals")
+            pairs = [f"NOT ({a} AND {b})"
+                     for i, a in enumerate(names) for b in names[i + 1:]]
+            p["always"] = " AND ".join(pairs)
+            p.setdefault("description", "mutex: " + ", ".join(names))
+        elif "if" in p or "then" in p:
+            if "if" not in p or "then" not in p:
+                raise ModelError(f"{path}: pattern needs both 'if' and 'then'")
+            p["given"] = p.pop("if")
+            p["always"] = p.pop("then")
+        if "always" not in p:
+            raise ModelError(f"{path}: property needs 'always' (or a pattern: "
+                             "never / mutex / if+then)")
         out.setdefault(p["program"], []).append(p)
     return out
 

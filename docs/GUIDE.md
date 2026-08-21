@@ -41,6 +41,21 @@ vendored submodule, nuXmv/matiec/XSD, and each vendor tool your
 `python tools/fetch_verifiers.py` fetches nuXmv (and clones matiec)
 into `.tools/` where doctor and `ladder verify` find them.
 
+## …know if my scenarios would catch real faults?
+
+`ladder mutate .` injects single realistic faults (dropped permissive,
+defeated 1oo2 channel, removed debounce/latch, dropped search station)
+and runs your suite against each. SURVIVED lines are faults your
+acceptance tests would wave through — each tells you which scenario to
+add. The scaffold starter scores 100%; keep yours there.
+
+## …prove a backend (mine or a plugin) supports the whole IR?
+
+`ladder conformance -t <backend>` runs the packaged example+benchmark
+corpus through the backend: every element, all five languages, emit +
+non-empty output per project (plus the scenario baseline). Passing it
+is the plugin compatibility contract from [BACKENDS](BACKENDS.md).
+
 ## …understand a failed proof?
 
 When `ladder verify -t smv` finds a violated theorem it writes
@@ -157,7 +172,14 @@ properties:
 ```
 
 `ladder model <ir> --properties props.yaml` (also on `verify`) appends
-them as INVARSPECs beside the auto-theorems.
+them as INVARSPECs beside the auto-theorems. Pattern sugar for
+non-logicians (each desugars to the same invariant form):
+
+```yaml
+  - {program: Safety, never: horn AND NOT lamp}
+  - {program: Safety, mutex: [fill_vlv_cmd, drain_vlv_cmd]}
+  - {program: Safety, if: search_done, then: key1.Latched}
+```
 
 ## …simulate one weird timing by hand?
 

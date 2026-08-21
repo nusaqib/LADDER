@@ -58,12 +58,12 @@ is the IR-with-domain-semantics and theorem auto-generation.
 | practice | source | status |
 |---|---|---|
 | xUnit/JUnit XML from scenario runs so CI renders pass/fail natively | TcUnit | **adopted** (`ladder check --junit`) |
-| requirement patterns: fill-in-the-blank English → fixed temporal templates | PLCverif | roadmap (extend the properties file with pattern kinds) |
+| requirement patterns: fill-in-the-blank English → fixed temporal templates | PLCverif | **adopted** (`never:` / `mutex:` / `if:`+`then:` in the properties file) |
 | model reductions (cone of influence) for big SMV models | PLCverif | roadmap (IC3 covers current scale) |
-| counterexample → replayable failing scenario in our own simulator | PLCverif (improved) | roadmap |
-| render each auto-theorem as controlled English in the doc package | FRET | roadmap (verification report) |
+| counterexample → replayable failing scenario in our own simulator | PLCverif (improved) | **adopted** (`verify -t smv` writes `*.replay.scenarios.yaml`) |
+| render each auto-theorem as controlled English in the doc package | FRET | partially adopted (`ladder render` lists each theorem with its English description) |
 | semantic `ladder diff` ("interlock X gained input Y") for reviews | Copia's lesson | roadmap |
-| mutation testing of the IR to score scenario/theorem strength | STMutants | roadmap (paper evaluation) |
+| mutation testing of the IR to score scenario/theorem strength | STMutants | **adopted** (`ladder mutate`: semantic fault injection, survivor report; scaffold suite scores 100%) |
 | emulator-in-the-loop stage after artifact build (PLCSIM Adv. / Logix Echo) | Rockwell AT002 | roadmap |
 | emit EPICS/OPC UA interface artifacts from the same IR | pytmc/ESS | roadmap (labs will ask immediately) |
 | structured models over string templates (ESS rebuilt to learn this) | PLC Integrator | already LADDER's core design |

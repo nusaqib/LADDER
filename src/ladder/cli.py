@@ -483,6 +483,46 @@ def cmd_render(args) -> int:
     return 0
 
 
+def cmd_mutate(args) -> int:
+    """Mutation-test the scenario suite: inject faults, count catches."""
+    from ladder.mutate import format_mutation, run_mutation
+    from ladder.scaffold import ManifestError, load_manifest
+
+    src = Path(args.directory)
+    if src.is_file():
+        if not args.scenarios:
+            print("a scenarios file is required with a bare IR file "
+                  "(-s suite.yaml)", file=sys.stderr)
+            return 1
+        ir, sc = src, Path(args.scenarios)
+    else:
+        try:
+            manifest, root = load_manifest(src)
+        except ManifestError as e:
+            print(str(e), file=sys.stderr)
+            return 1
+        if not manifest.scenarios:
+            print("this project declares no scenarios - nothing to score",
+                  file=sys.stderr)
+            return 1
+        ir, sc = root / manifest.ir, root / manifest.scenarios
+    mutants, invalid = run_mutation(ir, sc)
+    print(format_mutation(mutants, invalid))
+    survivors = [m for m in mutants if m.killed is False]
+    return 1 if survivors else 0
+
+
+def cmd_conformance(args) -> int:
+    """Run the packaged corpus against one or more backends."""
+    from ladder.conformance import format_conformance, run_conformance
+
+    backends = args.targets.split(",") if args.targets != "all" else \
+        sorted(registry)
+    results = run_conformance([b.strip() for b in backends], extra=args.corpus)
+    print(format_conformance(results))
+    return 1 if any(r.status == "fail" for r in results) else 0
+
+
 def cmd_doctor(args) -> int:
     """Preflight: report what this machine can run and what's missing."""
     from ladder.doctor import format_report, run_doctor
@@ -614,6 +654,24 @@ def main(argv: list[str] | None = None) -> int:
                         "only they have, then drafts map/IR/scenarios")
     p.add_argument("-o", "--out", default=None, help="write to file (default: stdout)")
     p.set_defaults(fn=cmd_prompt)
+
+    p = sub.add_parser("mutate", help="mutation-test the scenario suite: "
+                                      "inject realistic faults, report which "
+                                      "ones no scenario catches")
+    p.add_argument("directory", nargs="?", default=".",
+                   help="project root, or a single IR file (then use -s)")
+    p.add_argument("-s", "--scenarios", default=None,
+                   help="scenario suite (when a bare IR file is given)")
+    p.set_defaults(fn=cmd_mutate)
+
+    p = sub.add_parser("conformance", help="run the example+benchmark corpus "
+                                           "against backend(s) - the plugin "
+                                           "conformance contract")
+    p.add_argument("-t", "--targets", default="all",
+                   help="comma-separated backend specs (default: all built-in)")
+    p.add_argument("--corpus", default=None,
+                   help="extra IR file/dir to include in the corpus")
+    p.set_defaults(fn=cmd_conformance)
 
     p = sub.add_parser("doctor", help="preflight: what can this machine run, "
                                       "what is missing, and how to fix it")

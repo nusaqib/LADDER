@@ -31,7 +31,7 @@ def test_init_creates_working_project(tmp_path):
     assert validate_project(project).ok
     assert lint_project(project) == []
     results = run_suite(project, root / manifest.scenarios)
-    assert all(r.passed for r in results) and len(results) == 3
+    assert all(r.passed for r in results) and len(results) == 4
 
 
 def test_check_command_passes_on_scaffold(tmp_path, capsys):
@@ -49,8 +49,22 @@ def test_check_junit_output(tmp_path):
     init_project(root, name="TestPlant")
     assert main(["check", str(root), "--junit", "out/scenarios.xml"]) == 0
     xml = (root / "out" / "scenarios.xml").read_text(encoding="utf-8")
-    assert 'testsuite name="TestPlant" tests="3" failures="0"' in xml
-    assert xml.count("<testcase") == 3
+    assert 'testsuite name="TestPlant" tests="4" failures="0"' in xml
+    assert xml.count("<testcase") == 4
+
+
+def test_scaffold_suite_kills_all_mutants(tmp_path):
+    """Dogfood: mutation testing on the starter must find zero survivors
+    (this test is why the starter suite grew its 4th scenario)."""
+    from ladder.mutate import run_mutation
+
+    root = tmp_path / "p"
+    init_project(root, name="P")
+    mutants, invalid = run_mutation(root / "ir" / "p.yaml",
+                                    root / "scenarios" / "p.scenarios.yaml")
+    survivors = [m.description for m in mutants if m.killed is False]
+    assert not survivors, survivors
+    assert sum(1 for m in mutants if m.killed) >= 6
 
 
 def test_init_refuses_nonempty_dir(tmp_path):
