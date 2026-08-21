@@ -77,8 +77,9 @@ def _and(a: X.Expr | None, b: X.Expr) -> X.Expr:
 
 
 def _writes(s: Stmt) -> set[str]:
+    """Full dotted paths written (members of one UDT are distinct)."""
     if isinstance(s, SAssign):
-        return {s.target.root}
+        return {".".join(s.target.path)}
     if isinstance(s, SIf):
         out: set[str] = set()
         for b in (*s.then, *s.orelse):
@@ -90,8 +91,8 @@ def _writes(s: Stmt) -> set[str]:
     return set()
 
 
-def _cond_roots(e: X.Expr) -> set[str]:
-    return {r.root for r in X.refs(e)}
+def _cond_reads(e: X.Expr) -> set[str]:
+    return {".".join(r.path) for r in X.refs(e)}
 
 
 def to_rungs(lp: LoweredProgram, bool_roots: set[str]) -> list[Rung]:
@@ -138,7 +139,7 @@ def to_rungs(lp: LoweredProgram, bool_roots: set[str]) -> list[Rung]:
             if s.elifs or s.orelse:
                 raise RungError("ELSIF/ELSE has no ladder equivalent")
             inner = _and(cond, s.cond)
-            guard = _cond_roots(inner)
+            guard = _cond_reads(inner)
             for b in s.then:
                 if _writes(b) & guard:
                     raise RungError(

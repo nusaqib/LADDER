@@ -97,7 +97,9 @@ def init_project(directory: str | Path, name: str | None = None,
     from ladder.ir.validate import _IDENT_RE
 
     root = Path(directory)
-    name = _camel(name or root.name)
+    raw = name or root.name
+    # a name that is already a portable identifier is kept verbatim
+    name = raw if _IDENT_RE.match(raw) else _camel(raw)
     if not _IDENT_RE.match(name):
         raise ManifestError(f"project name {name!r} is not a portable identifier")
     slug = _snake(name)

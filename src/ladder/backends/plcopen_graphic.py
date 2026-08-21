@@ -325,14 +325,15 @@ def fbd_body(rungs: list[Rung], indent: str = "            ") -> list[str]:
         if modes == {"out"} and len(group) > 1:
             raise RungError(f"{'.'.join(path)}: multiple plain coils in FBD")
         between = [rungs[i] for i in range(idxs[0], idxs[-1] + 1) if i not in idxs]
-        written = {r.action.target.root for r in between
+        written = {".".join(r.action.target.path) for r in between
                    if isinstance(r.action, (CoilAction, MoveAction))}
         for r in group:
-            reads = {ref.root for ref in X.refs(r.cond)} if r.cond is not None else set()
+            reads = ({".".join(ref.path) for ref in X.refs(r.cond)}
+                     if r.cond is not None else set())
             if reads & written:
                 raise RungError(f"{'.'.join(path)}: latch fold would reorder a "
                                 "read past a write; use st for this program")
-            if path[0] in reads and modes != {"out"}:
+            if ".".join(path) in reads and modes != {"out"}:
                 raise RungError(f"{'.'.join(path)}: set/reset condition reads its "
                                 "own target; use st for this program")
 
