@@ -75,6 +75,10 @@ and plain IEC 61131-3 artifacts. You never write vendor syntax.
   `transitions` (first match wins); lowered to a CASE statement.
 - `scale` - linear analog scaling raw counts -> engineering units (REAL
   output), with raw/EU ranges and clamping.
+- `pid` - discrete PID (positional form, clamping anti-windup): setpoint/
+  process_value/output (REAL), kp + optional ti/td (TIME), out_min/out_max,
+  optional enable (freezes bumplessly when FALSE), and an `interval` the
+  program should run periodic at.
 - `assign` - unconditional `target := value` every scan.
 - `pattern` - invoke a library pattern by `ref` with `params` (see below).
 - `st` - raw neutral structured text; escape hatch only.

@@ -194,11 +194,8 @@ class SiemensBackend(Backend):
             else:
                 decls.append(self._member_decl(t.name, t.type, t.initial,
                                                t.comment, indent="    "))
-        decls += [
-            common.synth_var_line(
-                v, d.timer_decl_type(v) if v.kind == "timer" else "BOOL")
-            for v in lp.synth
-        ]
+        decls += [common.synth_var_line(v, common.synth_type(v, d))
+                  for v in lp.synth]
         if decls:
             out.append("VAR")
             out.extend(decls)

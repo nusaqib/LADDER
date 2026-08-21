@@ -30,6 +30,7 @@ from ladder.ir.model import (
     DualChannelEl,
     SearchChainEl,
     InterlockEl,
+    PidEl,
     Program,
     Project,
     RawStEl,
@@ -162,6 +163,8 @@ def _lower_element(el, synth: list[SynthVar], types: dict[str, str]) -> list[Stm
         return _lower_state_machine(el)
     if isinstance(el, ScaleEl):
         return _lower_scale(el, types)
+    if isinstance(el, PidEl):
+        return _lower_pid(el, synth, types)
     if isinstance(el, RawStEl):
         return [*_header(el, "st"), SRaw(el.code)]
     raise TypeError(f"unknown element: {el!r} (patterns must be expanded first)")
@@ -310,6 +313,61 @@ def _lower_alarm_group(el: AlarmGroupEl, synth: list[SynthVar]) -> list[Stmt]:
             out.append(SAssign(_ref(m.output), _ref(lats[i])))
     if fo is not None:
         out.append(SIf(X.Un("NOT", _ref(el.active)), [SAssign(fo, X.Lit(0, "int"))]))
+    return out
+
+
+def _lower_pid(el: PidEl, synth: list[SynthVar],
+               types: dict[str, str]) -> list[Stmt]:
+    """Discrete positional PID with clamping anti-windup: the integrator
+    advances only in the unsaturated branch, and the whole controller
+    freezes (bumplessly) while `enable` is FALSE."""
+    out = _header(el, "pid")
+    dt = X.parse_time_literal(el.interval) / 1000.0
+
+    def real_ref(name: str) -> X.Expr:
+        src: X.Expr = _ref(name)
+        t = types.get(name, "REAL")
+        return src if t in ("REAL", "LREAL") else X.Conv(t, "REAL", src)
+
+    e = _ref(f"{el.id}_e")
+    synth.append(SynthVar(f"{el.id}_e", "real", comment=f"error for pid {el.id}"))
+    u = _ref(f"{el.id}_u")
+    synth.append(SynthVar(f"{el.id}_u", "real", comment=f"unsaturated output for pid {el.id}"))
+    body: list[Stmt] = [SAssign(e, X.Bin("-", real_ref(el.setpoint),
+                                         real_ref(el.process_value)))]
+    terms: X.Expr = X.Bin("*", X.Lit(el.kp, "real"), e)
+    i_ref = None
+    if el.ti:
+        i_ref = _ref(f"{el.id}_i")
+        synth.append(SynthVar(f"{el.id}_i", "real", comment=f"integrator for pid {el.id}"))
+        terms = X.Bin("+", terms, i_ref)
+    if el.td:
+        ep = _ref(f"{el.id}_ep")
+        synth.append(SynthVar(f"{el.id}_ep", "real", comment=f"previous error for pid {el.id}"))
+        kd = el.kp * (X.parse_time_literal(el.td) / 1000.0) / dt
+        terms = X.Bin("+", terms, X.Bin("*", X.Lit(kd, "real"),
+                                        X.Bin("-", e, ep)))
+    body.append(SAssign(u, terms))
+    cv = _ref(el.output)
+    unsat: list[Stmt] = [SAssign(cv, u)]
+    if i_ref is not None:
+        ki = el.kp * dt / (X.parse_time_literal(el.ti) / 1000.0)
+        # clamping anti-windup: integrate only while unsaturated
+        unsat.append(SAssign(i_ref, X.Bin("+", i_ref,
+                                          X.Bin("*", X.Lit(ki, "real"), e))))
+    body.append(SIf(
+        X.Bin(">", u, X.Lit(el.out_max, "real")),
+        [SAssign(cv, X.Lit(el.out_max, "real"))],
+        elifs=[(X.Bin("<", u, X.Lit(el.out_min, "real")),
+                [SAssign(cv, X.Lit(el.out_min, "real"))])],
+        orelse=unsat,
+    ))
+    if el.td:
+        body.append(SAssign(_ref(f"{el.id}_ep"), e))
+    if el.enable is not None:
+        out.append(SIf(compile_cond(el.enable), body))
+    else:
+        out.extend(body)
     return out
 
 

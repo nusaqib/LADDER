@@ -190,9 +190,11 @@ class PlcopenBackend(Backend):
         x.append("          <localVars>")
         for t in lp.program.variables:
             x.extend(_tag_variable_xml(t, "            "))
+        from ladder.backends.common import synth_type
+
         for v in lp.synth:
-            type_ = d.timer_decl_type(v) if v.kind == "timer" else "BOOL"
-            x.extend(_variable_xml(v.name, type_, None, v.comment, "            "))
+            x.extend(_variable_xml(v.name, synth_type(v, d), None, v.comment,
+                                   "            "))
         for extra in extra_bools:
             x.extend(_variable_xml(extra, "BOOL", None,
                                    "IL timer-input temporary", "            "))

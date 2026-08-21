@@ -26,6 +26,8 @@ lint_project() adds non-fatal warnings on top:
   W04 state machine trap state (no outgoing transitions)
   W05 unreachable state (not initial, no incoming transition)
   W06 tag written by multiple elements in one program (last writer wins)
+  W07 pid element in a program whose execution period differs from the
+      pid's declared interval (the discrete terms assume it)
 Usage lint (W01-W03) is suppressed when the project contains raw `st`
 elements - their reads/writes are opaque, so absence is not evidence.
 """
@@ -46,6 +48,7 @@ from ladder.ir.model import (
     Cond,
     InterlockEl,
     PatternEl,
+    PidEl,
     Program,
     Project,
     RawStEl,
@@ -391,6 +394,17 @@ def _validate_program(project: Project, prog: Program,
             if dst_type is not None and dst_type not in ("REAL", "LREAL"):
                 res.add("V06", w, f"scale output {el.output!r} must be "
                         f"REAL or LREAL, is {dst_type}")
+        elif isinstance(el, PidEl):
+            for src in (el.setpoint, el.process_value):
+                t = resolve(src, w, "V03")
+                if t is not None and t not in ("INT", "DINT", "REAL", "LREAL"):
+                    res.add("V06", w, f"pid input {src!r} must be numeric, is {t}")
+            dst_type = check_write(el.output, w)
+            if dst_type is not None and dst_type not in ("REAL", "LREAL"):
+                res.add("V06", w, f"pid output {el.output!r} must be "
+                        f"REAL or LREAL, is {dst_type}")
+            if el.enable is not None:
+                check_read(el.enable, w)
         elif isinstance(el, PatternEl):
             res.add("V09", w, f"pattern {el.ref!r} not expanded - load the IR "
                     "via load_project (or call ladder.patterns.expand_project)")
@@ -520,6 +534,20 @@ def lint_project(project: Project) -> list[Issue]:
             elif isinstance(el, ScaleEl):
                 reads.add(_lint_root(el.input))
                 add_write(el.output, prog.name)
+            elif isinstance(el, PidEl):
+                reads.add(_lint_root(el.setpoint))
+                reads.add(_lint_root(el.process_value))
+                if el.enable is not None:
+                    add_reads(el.enable)
+                add_write(el.output, prog.name)
+                # W07: the discrete terms assume the declared interval
+                if prog.execution != "periodic" or prog.interval != el.interval:
+                    warns.append(Issue(
+                        "W07", f"programs/{prog.name}/{el.id}",
+                        f"pid assumes a {el.interval} period but the program "
+                        f"is {prog.execution}"
+                        + (f" ({prog.interval})" if prog.interval else "")
+                        + " - run it periodic at the pid interval"))
             elif isinstance(el, RawStEl):
                 opaque = True
 
@@ -568,7 +596,7 @@ def _element_writes(el) -> list[str]:
         return [st.latched for st in el.stations if st.latched] + [el.complete]
     if isinstance(el, TimerEl):
         return [t for t in (el.done, el.elapsed) if t]
-    if isinstance(el, ScaleEl):
+    if isinstance(el, (ScaleEl, PidEl)):
         return [el.output]
     if isinstance(el, StateMachineEl):
         return list({act.target for st in el.states for act in st.do} | {el.state_tag})

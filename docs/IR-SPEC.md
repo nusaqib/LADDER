@@ -251,6 +251,32 @@ Lowered to a precomputed multiply-add (`output := INT_TO_REAL(input) * k + b`)
 plus clamp; dialects that convert numeric types implicitly (Logix ST) drop
 the explicit conversion.
 
+### pid — discrete PID controller
+
+```yaml
+- element: pid
+  id: PID_temp
+  setpoint: temp_sp          # REAL (INT/DINT auto-converted)
+  process_value: temp_pv
+  output: heater_cv          # REAL/LREAL, clamped to [out_min, out_max]
+  kp: 2.5
+  ti: T#30s                  # optional integral time (omit = no I)
+  td: T#2s                   # optional derivative time (omit = no D)
+  interval: T#100ms          # design execution period
+  out_min: 0.0
+  out_max: 100.0
+  enable: auto_mode          # optional; FALSE freezes state + output
+```
+
+Positional form with **clamping anti-windup** (the integrator advances
+only while the output is unsaturated), locked in lowering. The discrete
+terms assume `interval` — run the program `periodic` at it (W07 warns
+otherwise). `enable: FALSE` freezes everything, so a manual station can
+own the output and hand back bumplessly. This is the portable control
+law; mapping to a vendor runtime block (PID_Compact, PIDE) with
+autotuning is a vendor-engine concern. REAL math is outside the model
+checker's subset (the program is skipped, and the report says so).
+
 ### pattern — library invocation (the LLM fast path)
 
 ```yaml

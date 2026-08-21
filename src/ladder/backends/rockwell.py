@@ -153,7 +153,8 @@ class RockwellBackend(Backend):
         return out
 
     def _synth_tag_xml(self, name: str, dtype: str, comment: str, indent: str) -> list[str]:
-        radix = "" if dtype == "FBD_TIMER" else ' Radix="Decimal"'
+        radix = ("" if dtype == "FBD_TIMER" else
+                 ' Radix="Float"' if dtype == "REAL" else ' Radix="Decimal"')
         out = [f'{indent}<Tag Name={quoteattr(name)} TagType="Base" '
                f'DataType="{dtype}"{radix} Constant="false" '
                f'ExternalAccess="Read/Write">']
@@ -282,8 +283,10 @@ class RockwellBackend(Backend):
                 x.extend(self._timer_tag_xml(v.name, presets.get(v.name, 0),
                                              v.comment, "          "))
                 continue
-            dtype = d.timer_decl_type(v) if v.kind == "timer" else "BOOL"
-            x.extend(self._synth_tag_xml(v.name, dtype, v.comment, "          "))
+            from ladder.backends.common import synth_type
+
+            x.extend(self._synth_tag_xml(v.name, synth_type(v, d), v.comment,
+                                         "          "))
         x.append("        </Tags>")
         x.append("        <Routines>")
         if ladder:

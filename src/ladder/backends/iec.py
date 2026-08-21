@@ -170,9 +170,10 @@ class IecBackend(Backend):
             init = fmt_initial(t.initial, t.type) if t.array is None else None
             locals_.append(f"    {t.name} : {iec_type_text(t)}"
                            + (f" := {init}" if init is not None else "") + ";")
+        from ladder.backends.common import synth_type
+
         for v in lp.synth:
-            type_ = d.timer_decl_type(v) if v.kind == "timer" else "BOOL"
-            locals_.append(f"    {v.name} : {type_};"
+            locals_.append(f"    {v.name} : {synth_type(v, d)};"
                            + (f"  (* {_safe_comment(v.comment)} *)" if v.comment else ""))
         for extra in extra_bools:
             locals_.append(f"    {extra} : BOOL;  (* IL timer-input temporary *)")

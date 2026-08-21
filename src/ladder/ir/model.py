@@ -374,6 +374,54 @@ class StateMachineEl(BaseModel):
     description: Optional[str] = None
 
 
+class PidEl(BaseModel):
+    """Discrete PID controller (positional form, clamping anti-windup).
+
+    cv = clamp(Kp*e + I + Kp*Td/dt*(e - e_prev)), e = SP - PV, with the
+    integrator advanced only while the output is unsaturated. `interval`
+    is the design execution period the discrete terms assume - run the
+    program `periodic` at that interval (lint W07 flags a mismatch).
+    While `enable` is FALSE the controller freezes (state and output
+    hold), so a manual station can own the output bumplessly.
+
+    This is the portable control law, simulate-able and reviewable.
+    Mapping to a vendor runtime block (PID_Compact, PIDE) with its
+    autotuning is a vendor-engine concern, deliberately outside the IR.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    element: Literal["pid"]
+    id: str
+    setpoint: str
+    process_value: str
+    output: str = Field(description="REAL/LREAL tag receiving the control value.")
+    kp: float = Field(description="Proportional gain.")
+    ti: Optional[str] = Field(
+        default=None, description="Integral time (TIME literal); omit for no I.")
+    td: Optional[str] = Field(
+        default=None, description="Derivative time (TIME literal); omit for no D.")
+    interval: str = Field(description="Design execution period (TIME literal).")
+    out_min: float = 0.0
+    out_max: float = 100.0
+    enable: Optional[Cond] = Field(
+        default=None, description="Controller runs while TRUE (default: always).")
+    description: Optional[str] = None
+
+    @field_validator("ti", "td", "interval")
+    @classmethod
+    def _check_times(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            X.parse_time_literal(v)
+        return v
+
+    @field_validator("out_max")
+    @classmethod
+    def _range(cls, v: float, info) -> float:
+        if v <= info.data.get("out_min", 0.0):
+            raise ValueError("out_max must be greater than out_min")
+        return v
+
+
 class ScaleEl(BaseModel):
     """Linear analog scaling: raw counts -> engineering units (REAL).
 
@@ -430,7 +478,8 @@ class RawStEl(BaseModel):
 
 LogicElement = Annotated[
     Union[AssignEl, InterlockEl, AlarmEl, AlarmGroupEl, DualChannelEl,
-          SearchChainEl, TimerEl, StateMachineEl, ScaleEl, PatternEl, RawStEl],
+          SearchChainEl, TimerEl, StateMachineEl, ScaleEl, PidEl,
+          PatternEl, RawStEl],
     Field(discriminator="element"),
 ]
 

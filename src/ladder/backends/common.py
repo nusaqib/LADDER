@@ -56,8 +56,15 @@ def iec_struct_lines(struct, indent: str = "    ") -> list[str]:
     return lines
 
 
-def synth_var_line(v: SynthVar, timer_type: str, indent: str = "    ") -> str:
-    type_ = timer_type if v.kind == "timer" else "BOOL"
+def synth_type(v: SynthVar, dialect) -> str:
+    """Declaration type of a lowering-synthesized variable: timer instance
+    (dialect-specific), REAL state (pid), or BOOL (edge memories/latches)."""
+    if v.kind == "timer":
+        return dialect.timer_decl_type(v)
+    return "REAL" if v.kind == "real" else "BOOL"
+
+
+def synth_var_line(v: SynthVar, type_: str, indent: str = "    ") -> str:
     line = f"{indent}{v.name} : {type_};"
     if v.comment:
         line += f"  // {v.comment}"
@@ -67,8 +74,5 @@ def synth_var_line(v: SynthVar, timer_type: str, indent: str = "    ") -> str:
 def local_declarations(lp: LoweredProgram, dialect, indent: str = "    ") -> list[str]:
     """VAR-block lines for program locals plus lowering-synthesized vars."""
     lines = [iec_var_line(t, indent) for t in lp.program.variables]
-    lines += [
-        synth_var_line(v, dialect.timer_decl_type(v) if v.kind == "timer" else "BOOL", indent)
-        for v in lp.synth
-    ]
+    lines += [synth_var_line(v, synth_type(v, dialect), indent) for v in lp.synth]
     return lines

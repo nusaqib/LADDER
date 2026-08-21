@@ -225,6 +225,8 @@ class Simulator:
             for v in lp.synth:
                 if v.kind == "timer":
                     scope.timers[v.name] = _TimerState(v.timer_kind)
+                elif v.kind == "real":
+                    scope.locals_[v.name] = 0.0
                 else:
                     scope.locals_[v.name] = False
             self._scopes[name] = scope
