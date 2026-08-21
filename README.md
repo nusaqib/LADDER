@@ -34,6 +34,9 @@ deterministic code.
 python -m venv .venv
 .venv\Scripts\python -m pip install -e .[dev]
 
+.venv\Scripts\ladder init C:\work\my-plant   # scaffold a user project (own repo)
+.venv\Scripts\ladder check C:\work\my-plant  # its full acceptance gate
+
 .venv\Scripts\ladder validate examples\vacuum_interlock.yaml
 .venv\Scripts\ladder build examples\vacuum_interlock.yaml -t all -o out
 .venv\Scripts\ladder verify examples\vacuum_interlock.yaml -t iec   # matiec, vendor-free
@@ -113,3 +116,5 @@ structure:
 Agent/LLM working notes (tool-agnostic): [AGENTS.md](AGENTS.md).
 Expert workflows as portable skills (intake → IR → vendor deploy → verify):
 [skills/](skills/), built on the [Design Inputs Map](docs/DESIGN-INPUTS.md).
+Plant logic lives in separate **user project** repos — `ladder init` +
+`ladder check`, layout in [docs/PROJECT-LAYOUT.md](docs/PROJECT-LAYOUT.md).

@@ -252,6 +252,89 @@ def cmd_adopt(args) -> int:
     return 0
 
 
+def cmd_init(args) -> int:
+    from ladder.scaffold import ManifestError, init_project
+
+    try:
+        files = init_project(args.directory, name=args.name, force=args.force)
+    except ManifestError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    for f in files:
+        print(f"  {f}")
+    print(f"created LADDER project in {args.directory} - next:\n"
+          f"  ladder check {args.directory}\n"
+          "then replace the starter motor station: edit design/DESIGN.md "
+          "first, mirror it in ir/, keep scenarios/ in sync.")
+    return 0
+
+
+def cmd_check(args) -> int:
+    """Manifest-driven acceptance gate: validate + lint + scenarios + build."""
+    from ladder.ir.validate import lint_project
+    from ladder.scaffold import ManifestError, load_manifest
+
+    try:
+        manifest, root = load_manifest(args.directory)
+    except ManifestError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+
+    print(f"project {manifest.project} ({root / manifest.ir})")
+    failed = False
+
+    # 1. validate + lint
+    project = load_project(root / manifest.ir)
+    res = validate_project(project)
+    for w in lint_project(project):
+        print(f"  {w}")
+    if res.ok:
+        print(f"validate   OK ({len(project.tags)} tags, "
+              f"{len(project.programs)} program(s))")
+    else:
+        for issue in res.issues:
+            print(f"  {issue}", file=sys.stderr)
+        print(f"validate   FAILED ({len(res.issues)} issue(s))", file=sys.stderr)
+        return 1
+
+    # 2. scenarios
+    if manifest.scenarios:
+        from ladder.scenario import run_suite
+
+        results = run_suite(project, root / manifest.scenarios)
+        bad = [r for r in results if not r.passed]
+        for r in bad:
+            print(f"  {r}", file=sys.stderr)
+        print(f"scenarios  {'OK' if not bad else 'FAILED'} "
+              f"({len(results) - len(bad)}/{len(results)} passed)")
+        failed |= bool(bad)
+    else:
+        print("scenarios  none declared (add some - they are the definition of done)")
+
+    # 3. build all manifest targets
+    iomap = None
+    if manifest.iomap:
+        from ladder.iomap import load_iomap, validate_iomap
+
+        iomap = load_iomap(root / manifest.iomap)
+        problems = validate_iomap(project, iomap)
+        if problems:
+            for p in problems:
+                print(f"  iomap: {p}", file=sys.stderr)
+            print("iomap      FAILED", file=sys.stderr)
+            return 1
+    lowered = lower_project(project)
+    outdir = root / manifest.out
+    n = 0
+    for t in manifest.targets:
+        n += len(get_backend(t).emit(project, lowered, outdir, iomap=iomap))
+    print(f"build      OK ({n} file(s) -> {outdir}, "
+          f"targets: {', '.join(manifest.targets)})")
+
+    print("CHECK " + ("FAILED" if failed else "PASSED"))
+    return 1 if failed else 0
+
+
 def cmd_targets(args) -> int:
     for name in sorted(registry):
         b = registry[name]
@@ -336,6 +419,22 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("spec", help="spec folder (Export-TiaToSpec output)")
     p.add_argument("-o", "--out", default="adopted")
     p.set_defaults(fn=cmd_adopt)
+
+    p = sub.add_parser("init", help="scaffold a new LADDER user project "
+                                    "(manifest, design map, working starter IR)")
+    p.add_argument("directory")
+    p.add_argument("--name", default=None,
+                   help="project name (default: derived from the directory)")
+    p.add_argument("--force", action="store_true",
+                   help="scaffold into a non-empty directory")
+    p.set_defaults(fn=cmd_init)
+
+    p = sub.add_parser("check", help="run a project's full acceptance gate from "
+                                     "its ladder.yaml: validate + lint + "
+                                     "scenarios + build")
+    p.add_argument("directory", nargs="?", default=".",
+                   help="project root containing ladder.yaml (default: .)")
+    p.set_defaults(fn=cmd_check)
 
     p = sub.add_parser("targets", help="list available backends")
     p.set_defaults(fn=cmd_targets)

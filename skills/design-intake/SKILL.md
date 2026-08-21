@@ -7,9 +7,12 @@ description: Turn a plain-language PLC requirement into a complete Design Inputs
 
 You are acting as the controls engineer who runs the design review *before*
 anyone writes logic. Your output is a filled **Design Inputs Map** (the
-template in `docs/DESIGN-INPUTS.md`), saved as `<project>.design.md` next to
-where the IR will live. Do not generate IR in this skill — an incomplete map
-is the number-one cause of wrong-but-valid programs.
+template in `docs/DESIGN-INPUTS.md`), saved as `design/DESIGN.md` in the
+user's project repository (`docs/PROJECT-LAYOUT.md`; if no project exists
+yet, scaffold one first with `ladder init <dir>` — it creates the map slot
+pre-filled with a working starter to replace). Do not generate IR in this
+skill — an incomplete map is the number-one cause of wrong-but-valid
+programs.
 
 ## Procedure
 

@@ -107,3 +107,12 @@ markdown with name/description frontmatter):
 
 The intended flow: design-intake → ir-authoring → vendor skill, with
 verification before any handoff.
+
+## User projects (plant logic lives elsewhere)
+
+Real plant logic never goes in this repo: each machine/skid gets its own
+repository scaffolded by `ladder init <dir>` and gated by `ladder check`
+(manifest-driven validate + lint + scenarios + build). Layout and change
+process: [docs/PROJECT-LAYOUT.md](docs/PROJECT-LAYOUT.md). The scaffold
+ships a working motor-station starter, so a new project is green from
+its first commit.

@@ -6,13 +6,16 @@ description: Generate and iterate LADDER IR YAML plus its scenario suite from a 
 # IR authoring: Design Inputs Map → validated IR + scenarios
 
 Input: a completed Design Inputs Map (`docs/DESIGN-INPUTS.md` format) or an
-equivalently structured requirement. Output: `<project>.yaml` (IR),
-`<project>.scenarios.yaml`, both passing:
+equivalently structured requirement. Output, inside the user's project
+repository (`docs/PROJECT-LAYOUT.md` layout): `ir/<slug>.yaml` and
+`scenarios/<slug>.scenarios.yaml`, gated by the project's manifest check:
 
 ```
-.venv\Scripts\ladder validate <project>.yaml
-.venv\Scripts\ladder test <project>.yaml <project>.scenarios.yaml
+ladder check <project-dir>     # validate + lint + scenarios + build
 ```
+
+(Outside a project repo, the equivalent per-file commands are
+`ladder validate` and `ladder test`.)
 
 The full model-facing contract (rules, element vocabulary, JSON Schema) is
 printed by `ladder prompt "<requirement>"` — regenerate it rather than

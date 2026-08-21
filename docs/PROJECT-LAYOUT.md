@@ -1,0 +1,82 @@
+# User projects: how plant logic lives outside this repo
+
+LADDER itself is a library + CLI. Real plant logic lives in **user
+projects** — separate repositories that consume LADDER as a dependency,
+one repo per machine/skid/system. This keeps facility-specific content
+(and anything lab-internal) out of the open tool, and gives every plant
+project its own history, review flow, and CI.
+
+## Creating a project
+
+```bash
+pip install git+https://github.com/nusaqib/LADDER.git
+ladder init my-plant          # or: ladder init my-plant --name MyPlant
+cd my-plant && ladder check .
+git init && git add -A && git commit -m "scaffold"
+```
+
+`init` does not create empty files: it scaffolds a small but complete
+**motor station** (fail-safe interlock, sealed-in start, latching
+overload alarm) whose design map, IR, scenarios, and IO map are all
+consistent — and whose `ladder check` passes immediately. Users replace
+working content instead of inventing structure. There are three ways to
+get real content in:
+
+1. **By hand** — edit `design/DESIGN.md`, mirror it in `ir/`, keep
+   `scenarios/` in sync.
+2. **Agent-driven** — describe the plant in prose; the `design-intake`
+   skill fills the design map, `ir-authoring` writes IR + scenarios into
+   the same slots (skills ship in the LADDER repo's `skills/`).
+3. **Adoption** — `ladder adopt siemens <spec>` from an existing TIA
+   project, then move the emitted IR into `ir/` and write the map from it.
+
+## The layout
+
+```
+my-plant/
+├── ladder.yaml                    # manifest: what `ladder check` runs
+├── design/DESIGN.md               # Design Inputs Map — the intake, edited FIRST
+├── ir/<slug>.yaml                 # the IR: the only hand-written logic source
+├── scenarios/<slug>.scenarios.yaml# acceptance behavior (definition of done)
+├── iomaps/<slug>.iomap.yaml       # vendor addresses/aliases (never in the IR)
+├── out/                           # generated artifacts — git-ignored, never edited
+├── README.md / AGENTS.md / CLAUDE.md
+└── .github/workflows/verify.yml   # CI: `ladder check .` on every push
+```
+
+Ordering rule that makes projects stay healthy: **design map → IR →
+scenarios → check**. The map is the contract with the plant; the IR is
+the contract with the tool; scenarios are the contract with reality.
+
+## The manifest (`ladder.yaml`)
+
+```yaml
+project: MyPlant
+ir: ir/my_plant.yaml
+scenarios: scenarios/my_plant.scenarios.yaml
+iomap: iomaps/my_plant.iomap.yaml     # optional
+targets: [iec, plcopen, siemens, rockwell, beckhoff]
+out: out
+```
+
+`ladder check [dir]` reads it and runs the full acceptance gate:
+validate + lint (V01–V11, W01–W06) → scenario simulation → artifact
+build for every target (with the IO map applied). Exit code 0 means the
+project is deployable-shape; project CI runs exactly this.
+
+## Deployment from a project
+
+- **Siemens**: `powershell -File out/siemens/build.ps1 -Version 19.0`
+  (headless TIA compile; see the `siemens-deploy` skill).
+- **Rockwell**: import `out/rockwell/<Name>.L5X` into Studio 5000
+  (see `rockwell-deploy`).
+- **Vendor-free proof**: `ladder verify ir/<slug>.yaml -t iec -o out`
+  (matiec), `-t smv` (nuXmv theorems) — same commands CI-able inside the
+  project repo.
+
+## One project, one IR document
+
+A manifest names exactly one IR file; an IR document already holds many
+programs (safety / alarms / sequences / drives), which is the right
+granularity for one machine or skid. Plants with several independent
+systems get several project repos — not one repo with many manifests.
