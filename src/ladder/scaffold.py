@@ -466,6 +466,13 @@ project wasn't built with. To upgrade the toolchain: update the submodule
 (`git -C vendor/LADDER pull`), re-run bootstrap, re-run `ladder check`,
 and commit the new submodule pin only when green.
 
+Authoring runs as an **LLM-driven loop under human oversight** (see
+`vendor/LADDER/docs/WORKFLOW.md`): `ladder prompt --intake` turns any
+chat model into the design interviewer; it drafts `design/DESIGN.md`,
+`ir/`, and `scenarios/`, `ladder check` judges every draft, and you
+review the diffs and sign off. Editing everything by hand works the
+same way - same gates, no assistant.
+
 Change process: update `design/DESIGN.md` → mirror it in the IR and
 scenarios → `ladder check .` until green → deploy from `out/` (Siemens:
 run `out/siemens/build.ps1`, which writes the openable TIA project to
@@ -479,9 +486,15 @@ not certified for SIL/PL-rated safety functions.
 _AGENTS = """\
 # Agent guide - __NAME__
 
-This is a LADDER user project. You write **IR YAML**, never vendor code.
-Full agent docs and skills ship with the LADDER repo (__LADDER_GIT__):
-design-intake, ir-authoring, siemens-deploy, rockwell-deploy, verification.
+This is a LADDER user project. You are the drafting side of an
+**LLM-driven loop under human oversight** (vendor/LADDER/docs/WORKFLOW.md):
+the human owns ground truth (signal senses, safety philosophy, acceptance
+stories) and sign-off; you draft the map, IR, and scenarios; the
+deterministic toolchain judges every draft. You write **IR YAML**, never
+vendor code, and you never invent plant facts - interview for them or
+record an explicit ASSUMPTION. Full agent docs and skills ship with the
+LADDER repo (__LADDER_GIT__): design-intake, ir-authoring, siemens-deploy,
+rockwell-deploy, verification.
 
 ## The contract
 

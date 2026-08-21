@@ -5,6 +5,13 @@ real, the way a controls engineer actually works: requirement → design
 map → logic → acceptance tests → proofs → deliverables. One step at a
 time; every step ends green.
 
+On a real project you would hand most of the typing below to an
+assistant — `ladder prompt --intake` makes any LLM run this exact
+sequence, interviewing you for the decisions and drafting the files
+(see [WORKFLOW](WORKFLOW.md)). We do it by hand here because the steps
+*are* the review skill: every question this tutorial makes you answer
+is a question you'll later be checking an assistant's draft against.
+
 **The requirement** (from an imaginary plant meeting):
 
 > "A vacuum pump skid. The pump needs cooling water and must not run hot.

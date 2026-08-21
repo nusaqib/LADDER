@@ -15,7 +15,7 @@
 
 \begin{document}
 
-\title{LADDER: HUMAN-FIRST, VENDOR-NEUTRAL GENERATION OF VERIFIED PLC PROGRAMS}
+\title{LADDER: AN LLM-DRIVEN, HUMAN-OVERSEEN LOOP FOR VENDOR-NEUTRAL GENERATION OF VERIFIED PLC PROGRAMS}
 
 \author{N. Saqib\thanks{nusaqib@lbl.gov}, Lawrence Berkeley National Laboratory, Berkeley, CA, USA}
 
@@ -25,10 +25,16 @@
 Accelerator facilities depend on programmable logic controllers (PLCs)
 whose programs live inside proprietary, binary, vendor-specific project
 files: hard to review, hard to diff, and locked to one toolchain.
-LADDER is an open toolkit that inverts this: control logic is authored
-once as a declarative, schema-validated intermediate representation (IR)
-of domain elements --- interlocks, redundant (1oo2) inputs, search/arming
-chains, annunciator groups, timers, state machines, PID loops --- and
+LADDER organizes PLC software development as an \emph{LLM-driven loop
+under human oversight}: an assistant (any large language model)
+interviews the engineer for the ground truth only they have --- signal
+senses, safety philosophy, acceptance stories --- and drafts the
+design; a deterministic, LLM-free core judges every draft; the
+engineer reviews diffs and signs off at defined gates. What the
+assistant drafts is never vendor code but a declarative,
+schema-validated intermediate representation (IR) of domain elements
+--- interlocks, redundant (1oo2) inputs, search/arming chains,
+annunciator groups, timers, state machines, PID loops --- from which
 everything vendor-specific is generated deterministically. One IR
 document drives five backends (Siemens TIA Portal via the Openness API,
 Rockwell L5X, PLCopen XML, Beckhoff TwinCAT, and plain IEC~61131-3
@@ -36,12 +42,9 @@ text), a scan-accurate simulator with declarative acceptance scenarios,
 a documentation package, and a formal-verification path that emits SMV
 models with safety theorems derived automatically from each element's
 semantics and proves them with nuXmv. Projects are self-contained git
-repositories with pinned toolchains and continuous integration.
-Authoring is organized as a human-gated loop over this deterministic,
-LLM-free core: an assistant (any model) interviews the engineer for the
-ground truth only they have and drafts the design map, IR, and
-scenarios; the machine judges every draft with the same gates a human
-edit would face; the engineer reviews and signs off. We describe the IR, the lowering and
+repositories with pinned toolchains and continuous integration, and
+the pipeline remains fully operable with no model at all. We describe
+the loop, the IR, the lowering and
 verification pipeline, and a case study in which a personnel protection
 system's fail-safe PLC program was reconstructed exactly --- including
 certified F-instruction instances and the operator HMI --- from
@@ -101,6 +104,30 @@ To our knowledge, no prior system combines a vendor-neutral
 toolchains, and safety theorems \emph{generated automatically from
 element semantics} rather than written by hand; that combination is
 LADDER's contribution.
+
+\section{The Authoring Loop}
+
+LADDER's central organizing idea is a three-actor loop with a strict
+segregation of authority. The \emph{human} is the only source of
+ground truth --- what the machine does and must never do, every
+signal's meaning and Boolean sense, the safety philosophy (what trips
+what, what latches, who may reset, redundancy), the acceptance stories
+that define done, and the hardware reality --- and the only authority
+that lands a change, at four small review gates: intake sign-off,
+behavior sign-off (the scenarios), proof review, and the deploy diff.
+The \emph{assistant} (any LLM; the contract is plain JSON Schema and
+YAML) conducts the intake interview, then drafts the design map, the
+IR, and the scenario suite --- mechanical transcription of the human's
+decisions into constrained, diffable text, which is precisely the task
+current models do well and reviews catch cheaply. The \emph{machine} is
+deterministic and LLM-free: validation and lint with machine-actionable
+issue codes, lowering, simulation, formal proof, artifact and vendor
+builds. Its outputs are the feedback that drives the assistant's next
+draft, so the loop converges on evidence rather than on plausibility;
+and because the gates are identical for human-typed and model-drafted
+YAML, the assistant is a productivity multiplier, never a trusted
+component. Removing the assistant leaves a complete, manually operable
+toolchain --- the loop degrades gracefully to classical engineering.
 
 \section{The Intermediate Representation}
 

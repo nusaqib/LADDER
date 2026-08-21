@@ -15,8 +15,9 @@ A full prior-art survey lives in [RELATED-WORK](RELATED-WORK.md)
 lab practice (CERN UNICOS, ESS PLC Factory, ALBA), formal verification
 of PLC code is production-proven (CERN PLCverif, incl. on a personnel
 safety system), and LLM→ST pipelines exist (LLM4PLC, Agents4PLC). The
-**combination** that appears unoccupied is LADDER's: a human-first,
-vendor-neutral *semantic* IR with deterministic lowering to five
+**combination** that appears unoccupied is LADDER's: a vendor-neutral
+*semantic* IR authored through an **LLM-driven, human-overseen loop**,
+with deterministic lowering to five
 backends, **auto-generated safety theorems per element type** (every
 prior system needs hand-written properties), scenario simulation +
 proof + docs from one artifact, in self-contained git/CI projects, with

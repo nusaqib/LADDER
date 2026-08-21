@@ -38,6 +38,17 @@ official documents linked at the top of each note.
 | [matiec](tools/matiec.md) | the open IEC 61131-3 compiler: invocation, dialect limits, the IL formal-call trap |
 | [nuxmv](tools/nuxmv.md) | model checking LADDER's emitted SMV: BDD vs IC3, invariants, counterexample reading |
 
+## The primary documents themselves
+
+[downloads/](downloads/README.md) holds the *real* manuals and schemas
+for offline use — the Rockwell L5X reference (1756-RM084), the PLCopen
+tc6 XSD, the nuXmv user manual, Siemens Openness PDFs, and the
+authoritative SimaticML XSDs from the local TIA install. They are
+git-ignored (downloadable, not redistributable); repopulate anywhere
+with `python tools/fetch_reference_docs.py` from the committed
+`downloads/sources.yaml`. Read the notes first, drop to the primary
+document for exact lists and schema detail.
+
 ## Ground rules for these notes
 
 1. **Original text only.** Facts and interfaces aren't copyrightable;

@@ -3,6 +3,14 @@
 Ten minutes, one working project, no theory. You need Python 3.11+ and
 nothing else — no PLC, no vendor software.
 
+One thing to know before you start: on real projects LADDER runs as an
+**LLM-driven loop under your oversight** — an assistant interviews you,
+drafts the design, and the machine gates every draft; you review and
+decide (see [WORKFLOW](WORKFLOW.md)). This page walks the same loop *by
+hand*, one small step at a time, so you know exactly what the assistant
+drafts and what the gates catch — that's what makes your oversight
+informed rather than ceremonial.
+
 ## 1. Install
 
 ```powershell
@@ -115,8 +123,24 @@ If you have TIA Portal on this machine, add `deploy: [siemens@21]` to
 **openable TIA project** under `out/siemens/project/`. Everything under
 `out/` is disposable: regenerate it, never edit it.
 
+## 8. Now let an assistant drive the loop
+
+```powershell
+ladder prompt --intake
+```
+
+Paste the output into any chat model: it interviews **you** for the
+ground truth only you have (signals and their senses, what trips what,
+who may reset, the acceptance stories), then drafts the design map, IR,
+and scenarios — and `ladder check .` judges the draft exactly as it
+judged yours in steps 3–6. That loop — assistant drafts, machine gates,
+you decide — is how real projects are built; the full contract is in
+[WORKFLOW](WORKFLOW.md).
+
 ## Where next
 
+- **[The workflow](WORKFLOW.md)** — the authoring loop: who provides
+  what, and where your sign-off gates are.
 - **[The tutorial](TUTORIAL.md)** — build a real project from a blank
   requirement: design map, interlocks, alarms, scenarios, documentation.
 - **[The guide](GUIDE.md)** — "how do I…" recipes, one task each.

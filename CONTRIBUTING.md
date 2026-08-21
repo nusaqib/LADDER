@@ -1,8 +1,10 @@
 # Contributing to LADDER
 
-Thanks for your interest! LADDER is vendor-agnostic PLC program generation:
-a declarative IR any LLM (or human) writes, deterministic lowering, and
-per-vendor backends. You can contribute meaningfully **without owning any
+Thanks for your interest! LADDER is vendor-agnostic PLC program generation
+run as an LLM-driven authoring loop under human oversight: an assistant
+(any model) drafts a declarative IR, a deterministic LLM-free core
+validates, simulates, proves, and builds it, and a human reviews and
+signs off (humans can also author directly — same gates). You can contribute meaningfully **without owning any
 vendor software** — the core and its tests are pure Python, and CI verifies
 generated IEC 61131-3 ST with the open matiec compiler.
 

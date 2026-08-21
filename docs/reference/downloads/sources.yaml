@@ -1,0 +1,60 @@
+# Real vendor/tool documentation fetched for offline use.
+# `python tools/fetch_reference_docs.py` downloads everything below into
+# this directory. The files themselves are GIT-IGNORED: they are vendor
+# publications we may freely download but not redistribute in a public
+# repository. This manifest + the fetcher make the library reproducible.
+#
+# Entry fields:
+#   path:    destination relative to this directory
+#   urls:    one or more candidate URLs (first that works wins)
+#   local:   instead of urls - copy from a path on this machine (glob ok)
+#   note:    what it is / why we keep it
+
+sources:
+  - path: rockwell/1756-rm084_l5x-import-export.pdf
+    urls:
+      - https://literature.rockwellautomation.com/idc/groups/literature/documents/rm/1756-rm084_-en-p.pdf
+    note: THE L5X reference - Logix 5000 import/export XML format manual.
+
+  - path: rockwell/logix-at002_cicd.pdf
+    urls:
+      - https://literature.rockwellautomation.com/idc/groups/literature/documents/at/logix-at002_-en-p.pdf
+    note: Rockwell Industrial DevOps / CI-CD application technique.
+
+  - path: plcopen/tc6_xml_v201.xsd
+    urls:
+      - https://raw.githubusercontent.com/fekaputra/gloze-x/master/tc6_xml_v201.xsd
+    note: The official PLCopen tc6 XML schema (mirror; plcopen.org 404s).
+          Same file CI validates against; set TC6_XSD here for local runs.
+
+  - path: nuxmv/nuxmv-user-manual.pdf
+    urls:
+      - https://nuxmv.fbk.eu/downloads/nuxmv-user-manual.pdf
+      - https://es-static.fbk.eu/tools/nuxmv/downloads/nuxmv-user-manual.pdf
+    note: nuXmv user manual (SMV language, BDD/IC3 commands).
+
+  - path: siemens/openness-getting-started-v21.pdf
+    urls:
+      - https://support.industry.siemens.com/cs/attachments/108716692/108716692_TIA_PortalOpenness_GettingStartedAndDemo_V21_en.pdf
+    note: TIA Portal Openness V21 introduction + demo application (SIOS
+          108716692). The full API manual is SIOS entry 109792902
+          ("Automation of engineering workflows") - fetch manually if the
+          attachment id changes per version.
+
+  - path: siemens/openness-hw-parameters-v21.pdf
+    local: "C:/Program Files/Siemens/Automation/Portal V21/PublicAPI/V21/HW Parameter description/TIA Portal Openness Hardware parameters.pdf"
+    note: Every Openness-settable hardware attribute, from the local
+          V21 install (ships with TIA; not redistributable).
+
+  - path: siemens/simatic-ml-schemas-v21/
+    local: "C:/Program Files/Siemens/Automation/Portal V21/PublicAPI/V21/Schemas/*.xsd"
+    note: The authoritative SimaticML XSDs (SW.PlcBlocks.*, FlgNet via
+          LADFBD_v5, SCL_v4, InterfaceSections_v5, ...) from the local
+          V21 install - validate generated block XML against these.
+
+# Not fetchable, recorded so nobody wastes time:
+#   IEC 61131-3 / 61508 / 61511, ISA-18.2: paywalled standards - buy or
+#     use the institution's subscription; docs/reference/standards/*.md
+#     are our original working notes.
+#   Beckhoff TE1000: web-only (infosys.beckhoff.com); PDF exports exist
+#     per-page but not as one stable manual URL.

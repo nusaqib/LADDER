@@ -8,3 +8,7 @@ out/
 adopted/
 ir-schema.json
 .pytest_cache/
+# fetched vendor manuals/schemas - downloadable, not redistributable
+docs/reference/downloads/*
+!docs/reference/downloads/README.md
+!docs/reference/downloads/sources.yaml

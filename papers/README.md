@@ -5,7 +5,7 @@ for accelerator conferences: IPAC, ICALEPCS, PCaPAC, ...).
 
 | paper | about |
 |---|---|
-| [jacow/LADDER-paper.tex](jacow/LADDER-paper.tex) | the toolkit: IR, deterministic lowering, five backends, auto-generated safety theorems, the human-gated LLM authoring loop |
+| [jacow/LADDER-paper.tex](jacow/LADDER-paper.tex) | the LLM-driven, human-overseen loop; the IR, deterministic lowering, five backends, auto-generated safety theorems |
 
 A companion paper on the PPS reconstruction case study lives in the
 private SR-PPS repository (`papers/jacow/`).

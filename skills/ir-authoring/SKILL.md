@@ -15,6 +15,13 @@ suite, gated by `ladder check <project-dir>` (validate + lint + scenarios
 `ladder prompt "<requirement>"` — regenerate it rather than trusting
 memory.
 
+You are the drafting actor in the human-overseen loop
+(`docs/WORKFLOW.md`): the map's ground-truth cells are the human's
+decisions — transcribe them faithfully, never "improve" them silently;
+where the map is incomplete, go back to intake rather than inventing.
+Your draft lands only when `ladder check` is green *and* the human has
+reviewed the diff.
+
 ## Structure before elements
 
 - **One program per responsibility**, in deliberate order — order is the

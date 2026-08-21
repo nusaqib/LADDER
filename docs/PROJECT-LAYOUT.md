@@ -52,14 +52,18 @@ install, no PyPI). Two mechanisms keep the pin honest:
 **motor station** (fail-safe interlock, sealed-in start, latching
 overload alarm) whose design map, IR, scenarios, and IO map are all
 consistent — and whose `ladder check` passes immediately. Users replace
-working content instead of inventing structure. There are three ways to
-get real content in:
+working content instead of inventing structure. Real content comes in
+three ways — the first is the normal one ([WORKFLOW](WORKFLOW.md)):
 
-1. **By hand** — edit `design/DESIGN.md`, mirror it in `ir/`, keep
-   `scenarios/` in sync.
-2. **Agent-driven** — describe the plant in prose; the `design-intake`
-   skill fills the design map, `ir-authoring` writes IR + scenarios into
-   the same slots (skills ship in the LADDER repo's `skills/`).
+1. **The LLM-driven loop (recommended)** — `ladder prompt --intake`
+   turns any chat model into the interviewer: it asks you for the
+   ground truth only you have, drafts the design map, IR, and scenarios
+   into these same slots, and `ladder check` judges every draft; you
+   review the diffs and sign off at the gates. The `design-intake` and
+   `ir-authoring` skills (LADDER repo, `skills/`) are the same loop for
+   agent frameworks.
+2. **By hand** — edit `design/DESIGN.md`, mirror it in `ir/`, keep
+   `scenarios/` in sync. Same gates, no assistant.
 3. **Adoption** — `ladder adopt siemens <spec>` from an existing TIA
    project, then move the emitted IR into `ir/` and write the map from it.
 

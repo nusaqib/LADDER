@@ -14,7 +14,7 @@ survey found".
 | **UNICOS-CPC** (CERN) | 2011– | Object taxonomy + generator: device specs → Siemens/Schneider ST + SCADA | continuous process control via object instantiation; no general logic IR, no formal verification |
 | **PLC Factory / PLC Integrator** (ESS) | 2017/2025 | device DB + DSL → Siemens SCL + EPICS records | interface/glue generation, not semantic logic; no verification |
 | **PyPLC / EPS tools** (ALBA) | 2015 | equipment DB + templates → protection PLC code | template instantiation, no formal semantics |
-| **LLM4PLC / Agents4PLC / AutoPLC** | 2024–26 | LLM pipelines generating ST with compiler/model-checker feedback | LLM-first free-form ST; LADDER is human-first, the optional LLM writes schema-validated YAML gated by the same checks as a human |
+| **LLM4PLC / Agents4PLC / AutoPLC** | 2024–26 | LLM pipelines generating ST with compiler/model-checker feedback | they generate free-form vendor code autonomously; LADDER's LLM drives a *human-overseen* loop and only ever writes schema-validated YAML, judged by deterministic gates and human sign-off |
 | **Arcade.PLC**, **ESBMC-PLC(+)** | 2012, 2026 | model checking / BMC of existing PLC code (ESBMC-PLC+ takes properties as YAML) | verification-only; the YAML-property idea independently corroborates LADDER's declarative properties file |
 | **G4LTL-ST** | 2014 | reactive synthesis: LTL → ST | expert-hostile input, scalability limits; LADDER has humans author structured logic and derives the theorems |
 | **FRET → PLCverif** (NASA/CERN) | 2023 | controlled-English requirements → temporal logic → PLCverif | requirements front-end for verification; a model for rendering LADDER's theorems back into reviewable English |
@@ -34,7 +34,7 @@ endorsed); LLM→verified-ST loops (LLM4PLC and successors).
 
 **The combination that appears unoccupied:**
 
-1. a **vendor-neutral, human-first, schema-validated semantic IR** for
+1. a **vendor-neutral, schema-validated semantic IR** for
    interlock/alarm/sequence logic with **deterministic lowering to five
    backends** including two real vendor toolchains driven headlessly;
 2. **auto-generated safety theorems per element type** — interlock,
@@ -43,8 +43,11 @@ endorsed); LLM→verified-ST loops (LLM4PLC and successors).
 3. one artifact driving **lint + scan-accurate simulation with
    declarative acceptance scenarios + formal proof + codegen + generated
    documentation package** in a self-contained git/CI project;
-4. **LLM-optional inversion**: the assistant emits constrained YAML that
-   passes the identical validation gauntlet as a human author.
+4. **the human-oversight inversion of LLM-first codegen**: the LLM
+   drives the authoring loop but emits only constrained YAML, every
+   draft judged by the same deterministic gates as a human edit and
+   landed only on human sign-off — while the pipeline itself stays
+   fully operable with no model at all.
 
 **Convergence risk to watch:** ESBMC-PLC+ from the verification side,
 SIMATIC AX / Rockwell DevOps from the workflow side. The defensible core

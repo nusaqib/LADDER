@@ -8,7 +8,10 @@ The IR is a YAML or JSON document validated in three layers:
 3. **Backend lint** — a backend refuses what it cannot express
    (e.g. Rockwell has no ST pulse timer).
 
-Design intent: keep the generation problem small and checkable. Elements are
+Design intent: keep the generation problem small and checkable — the IR is
+what the LLM drafts and the human reviews in the authoring loop
+([WORKFLOW](WORKFLOW.md)), so it must stay readable as design documentation
+and constrained enough that every mistake is machine-catchable. Elements are
 *declarative* ("this is a latching interlock on these permissives"), and their
 runtime semantics are defined once in `src/ladder/ir/lower.py` for every vendor.
 

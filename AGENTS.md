@@ -7,10 +7,13 @@ IR JSON Schema (`ladder schema`).
 
 ## What LADDER is
 
-Vendor-agnostic PLC program generation. An LLM emits a declarative IR
-(YAML/JSON); deterministic code validates, lowers, and renders it into
-Siemens TIA V21 (SCL + Openness build script), Rockwell Studio 5000 V36
-(L5X), PLCopen XML 2.01, and Beckhoff TwinCAT 3 artifacts. See README.md.
+Vendor-agnostic PLC program generation, run as an **LLM-driven loop
+under human oversight** (docs/WORKFLOW.md): the human supplies ground
+truth and sign-off, an LLM drafts a declarative IR (YAML/JSON), and
+deterministic code validates, lowers, and renders it into Siemens TIA
+V21 (SCL + Openness build script), Rockwell Studio 5000 V36 (L5X),
+PLCopen XML 2.01, and Beckhoff TwinCAT 3 artifacts — the same gates
+whether a human or a model wrote the YAML. See README.md.
 
 ## Rules
 
