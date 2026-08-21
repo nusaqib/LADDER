@@ -337,8 +337,9 @@ def emit_smv(project: Project, lp: LoweredProgram) -> str:
     for el in prog.logic:
         if isinstance(el, InterlockEl):
             perm = _smv_expr(compile_cond(el.permissives), _PropCtx())
+            out_v = _var(tuple(el.output.split(".")))
             lines.append(f"-- {el.id}: permit never TRUE while a permissive is down")
-            lines.append(f"INVARSPEC ({el.output} -> {perm});")
+            lines.append(f"INVARSPEC ({out_v} -> {perm});")
         elif isinstance(el, AlarmGroupEl):
             active = _var(tuple(el.active.split(".")))
             if el.unacked:
