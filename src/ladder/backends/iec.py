@@ -141,18 +141,21 @@ class IecBackend(Backend):
              d: StrictIecDialect) -> list[str]:
         # render the body first: the IL renderer may add BOOL temporaries
         extra_bools: list[str] = []
+        note = None
         if lp.program.language == "il":
             from ladder.backends.il import IlRenderer
 
             renderer = IlRenderer()
             body = renderer.body(lp)
             extra_bools = renderer.extra_bools
-            note = None
+        elif lp.program.language == "sfc":
+            body = self._sfc_body(lp, d)
         else:
             body = d.body(lp)
-            note = (f"language '{lp.program.language}' has no IEC textual "
-                    "form; rendered as ST"
-                    if lp.program.language in ("ladder", "fbd", "sfc") else None)
+            if lp.program.language in ("ladder", "fbd"):
+                note = (f"language '{lp.program.language}' is graphic-only; "
+                        "rendered as equivalent ST (see the plcopen backend "
+                        "for the graphic body)")
 
         out = [f"PROGRAM {name}"]
         if note:
@@ -181,6 +184,43 @@ class IecBackend(Backend):
         out.extend("    " + line if line else "" for line in body.splitlines())
         out.append("END_PROGRAM")
         return out
+
+    def _sfc_body(self, lp: LoweredProgram, d: StrictIecDialect) -> str:
+        """Textual SFC (IEC 61131-3 B.1.6): steps with action associations,
+        named ACTIONs, prioritized TRANSITIONs. matiec compiles this, so CI
+        proves SFC output like every other language."""
+        from ladder.backends.dialects import RenderContext
+        from ladder.ir.lower import state_codes
+        from ladder.ir.model import StateMachineEl, compile_cond
+
+        el = next(e for e in lp.program.logic if isinstance(e, StateMachineEl))
+        codes = state_codes(el)
+        ctx = RenderContext.for_program(lp)
+        out: list[str] = []
+        for st in el.states:
+            kw = "INITIAL_STEP" if st.name == el.initial else "STEP"
+            out.append(f"{kw} {st.name}:")
+            out.append(f"    {st.name}_act(N);")
+            out.append("END_STEP")
+        out.append("")
+        for st in el.states:
+            for k, tr in enumerate(st.transitions):
+                cond = d.expr(compile_cond(tr.when), ctx)
+                out.append(f"TRANSITION (PRIORITY := {k + 1}) "
+                           f"FROM {st.name} TO {tr.goto}")
+                out.append(f"    := {cond};")
+                out.append("END_TRANSITION")
+        out.append("")
+        for st in el.states:
+            out.append(f"ACTION {st.name}_act:")
+            # keep the state tag truthful for anything else reading it
+            out.append(f"    {d.fmt_ref(X.Ref(tuple(el.state_tag.split('.'))), ctx)}"
+                       f" := {codes[st.name]};")
+            for act in st.do:
+                target = d.fmt_ref(X.Ref(tuple(act.target.split('.'))), ctx)
+                out.append(f"    {target} := {d.expr(compile_cond(act.value), ctx)};")
+            out.append("END_ACTION")
+        return "\n".join(out) + "\n"
 
     def _configuration(self, project: Project,
                        lowered: dict[str, LoweredProgram]) -> list[str]:

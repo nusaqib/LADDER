@@ -107,8 +107,13 @@ def test_iec_backend_renders_il(project, tmp_path):
     assert "CAL T_warmup_t(" in runtime
     assert "IN := T_warmup_t_in," in runtime and "PT := T#3s" in runtime
     assert "T_warmup_t_in : BOOL;" in runtime     # synthesized IL temporary
-    # ladder/fbd/sfc programs fall back to ST in the textual backend, with a note
-    assert "language 'ladder' has no IEC textual form" in st
+    # ladder/fbd fall back to ST in the textual backend, with a note
+    assert "language 'ladder' is graphic-only" in st
+    # sfc renders as real textual SFC (matiec-checked in CI)
+    seq = st.split("PROGRAM Sequence")[1].split("END_PROGRAM")[0]
+    assert "INITIAL_STEP idle:" in seq
+    assert "TRANSITION (PRIORITY := 1) FROM idle TO filling" in seq
+    assert "ACTION filling_act:" in seq and "seq_state := 1;" in seq
 
 
 def test_il_if_and_case_jumps():
