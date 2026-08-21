@@ -34,6 +34,8 @@ ladder generate spec.md --cmd "your-llm-cli" --accept scenarios.yaml
 | `scan` | `{n:, dt_ms:}` (both optional) | execute n scans of dt_ms each |
 | `run` | `{ms:, dt_ms:}` | advance simulated time, scanning every dt_ms |
 | `expect` | `{tag: value, ...}` | assert current values; failure reports step, value, and sim time |
+| `model` | `{input:, output:, gain:, tau_ms:, ambient:}` | attach a first-order plant: each scan, `output` relaxes toward `ambient + gain * input` with time constant `tau_ms` — closes the loop for PID/analog tests |
+| `expect_near` | `{tag: {value:, tol:}}` | assert an analog value within tolerance (default tol: 5% of value) |
 
 Timing note: timers accumulate real simulated milliseconds, so a `T#3s`
 on-delay needs `run: {ms: 3000+}` (plus a scan or two of margin for the

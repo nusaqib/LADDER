@@ -483,6 +483,38 @@ def cmd_render(args) -> int:
     return 0
 
 
+def cmd_diff(args) -> int:
+    """Semantic IR diff: what changed, in design language."""
+    from ladder.irdiff import diff_ir
+
+    lines = diff_ir(args.old, args.new)
+    if not lines:
+        print("no semantic difference")
+        return 0
+    print(f"semantic changes ({args.old} -> {args.new}):")
+    for line in lines:
+        print(line)
+    return 0
+
+
+def cmd_sim(args) -> int:
+    """Interactive scan-by-scan simulator REPL."""
+    from ladder.repl import run_repl
+    from ladder.scaffold import ManifestError, load_manifest
+
+    src = Path(args.directory)
+    if src.is_file():
+        project = _load_validated(src)
+    else:
+        try:
+            manifest, root = load_manifest(src)
+        except ManifestError as e:
+            print(str(e), file=sys.stderr)
+            return 1
+        project = _load_validated(root / manifest.ir)
+    return run_repl(project)
+
+
 def cmd_mutate(args) -> int:
     """Mutation-test the scenario suite: inject faults, count catches."""
     from ladder.mutate import format_mutation, run_mutation
@@ -654,6 +686,18 @@ def main(argv: list[str] | None = None) -> int:
                         "only they have, then drafts map/IR/scenarios")
     p.add_argument("-o", "--out", default=None, help="write to file (default: stdout)")
     p.set_defaults(fn=cmd_prompt)
+
+    p = sub.add_parser("diff", help="semantic IR diff: tags/elements/fields "
+                                    "in design language, not YAML lines")
+    p.add_argument("old", help="old IR file or modular directory")
+    p.add_argument("new", help="new IR file or modular directory")
+    p.set_defaults(fn=cmd_diff)
+
+    p = sub.add_parser("sim", help="interactive simulator REPL: set inputs, "
+                                   "press buttons, advance time, watch outputs")
+    p.add_argument("directory", nargs="?", default=".",
+                   help="project root, or a single IR file")
+    p.set_defaults(fn=cmd_sim)
 
     p = sub.add_parser("mutate", help="mutation-test the scenario suite: "
                                       "inject realistic faults, report which "

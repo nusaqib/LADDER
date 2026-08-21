@@ -183,16 +183,41 @@ non-logicians (each desugars to the same invariant form):
 
 ## …simulate one weird timing by hand?
 
-```python
-from ladder.ir.loader import load_project
-from ladder.sim import Simulator
-sim = Simulator(load_project("ir/plant.yaml"))
-sim.set("water_flow_ok", True); sim.pulse("reset_pb")
-sim.run(2500, dt_ms=50)
-print(sim.get("pump_permit"))
+Interactively — a commissioning panel in the terminal:
+
+```
+ladder sim .
+> set estop_ok true          > pulse start_pb
+> watch motor_run run_permit > run 1500 50
+> state                      > help
 ```
 
-Scenarios are this, declarative and CI-run.
+Or scripted in Python (`ladder.sim.Simulator`: set/pulse/run/get).
+Scenarios are the same thing, declarative and CI-run.
+
+## …test a PID/analog loop without hardware?
+
+Attach a plant model inside the scenario — the simulator closes the
+loop and `expect_near` asserts with tolerance:
+
+```yaml
+steps:
+  - model: {input: heater_out, output: temp_pv,
+            gain: 1.0, tau_ms: 2000, ambient: 20.0}
+  - set: {enable: true}
+  - run: {ms: 60000, dt_ms: 100}
+  - expect_near: {temp_pv: {value: 60.0, tol: 3.0}}
+```
+
+`model:` is a first-order lag (pv → ambient + gain·u, time constant
+tau); attach several for multi-loop plants.
+
+## …review what a change actually did?
+
+`ladder diff old.yaml new.yaml` (files or modular dirs) — semantic
+changes in design language: `IL_motor: permissives gained guard_closed`,
+dropped tags, added elements, and an explicit warning when element
+ORDER changed (scan-order review required).
 
 ## …generate the documentation package?
 

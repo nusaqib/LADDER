@@ -45,6 +45,29 @@ class SimError(RuntimeError):
 
 
 @dataclass
+class FirstOrderProcess:
+    """First-order-lag plant model for closed-loop scenarios:
+
+        pv -> ambient + gain * u   with time constant tau_ms.
+
+    Attach with `sim.attach_model(...)` or the scenario `model:` step -
+    turns PID/heater/flow acceptance tests into pure YAML."""
+
+    input: str            # the actuator tag the logic writes (u)
+    output: str           # the process-value tag the logic reads (pv)
+    gain: float = 1.0
+    tau_ms: float = 1000.0
+    ambient: float = 0.0
+
+    def __call__(self, sim: "Simulator", dt_ms: int) -> None:
+        u = float(sim.get(self.input) or 0.0)
+        pv = float(sim.get(self.output) or 0.0)
+        target = self.ambient + self.gain * u
+        alpha = dt_ms / max(self.tau_ms, float(dt_ms))
+        sim.set(self.output, pv + (target - pv) * alpha)
+
+
+@dataclass
 class _TimerState:
     kind: str  # TON | TOF | TP
     elapsed: int = 0  # ms
@@ -217,6 +240,7 @@ class Simulator:
                                         for t in project.tags}
         self.time_ms = 0
         self.scan_count = 0
+        self._models: list = []
         self._scopes: dict[str, _Scope] = {}
         for name, lp in self.lowered.items():
             scope = _Scope(self.globals)
@@ -257,10 +281,18 @@ class Simulator:
         self.set(tag, False)
         self.scan(dt_ms)
 
+    def attach_model(self, model) -> None:
+        """Attach a plant model: a callable(sim, dt_ms) run at the start
+        of every scan (before program execution), closing the loop by
+        writing process-value tags from the previous scan's outputs."""
+        self._models.append(model)
+
     def scan(self, dt_ms: int = 10, n: int = 1) -> None:
         for _ in range(n):
             self.time_ms += dt_ms
             self.scan_count += 1
+            for model in self._models:
+                model(self, dt_ms)
             for name, lp in self.lowered.items():
                 self._exec_block(lp.statements, self._scopes[name], dt_ms)
 

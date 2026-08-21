@@ -73,7 +73,8 @@ class ScenarioSuite:
         return cls(data["scenarios"])
 
 
-_STEP_KINDS = {"set", "pulse", "scan", "run", "expect"}
+_STEP_KINDS = {"set", "pulse", "scan", "run", "expect", "model",
+               "expect_near"}
 
 
 def _step_kind(step: dict) -> tuple[str, Any]:
@@ -103,6 +104,19 @@ def run_scenario(project: Project, scenario: dict, on_raw: str = "error") -> Sce
                 sim.scan(dt_ms=(arg or {}).get("dt_ms", 10), n=(arg or {}).get("n", 1))
             elif kind == "run":
                 sim.run(arg["ms"], dt_ms=arg.get("dt_ms", 10))
+            elif kind == "model":
+                from ladder.sim import FirstOrderProcess
+
+                sim.attach_model(FirstOrderProcess(**arg))
+            elif kind == "expect_near":
+                for tag, spec in arg.items():
+                    want = float(spec["value"])
+                    tol = float(spec.get("tol", abs(want) * 0.05 or 0.1))
+                    got = float(sim.get(tag))
+                    if abs(got - want) > tol:
+                        return ScenarioResult(name, False, StepFailure(
+                            i, step, f"{tag} is {got:.4g}, expected "
+                            f"{want:.4g} +/- {tol:.4g} (t={sim.time_ms}ms)"))
             elif kind == "expect":
                 for tag, want in arg.items():
                     got = sim.get(tag)
