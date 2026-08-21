@@ -59,6 +59,7 @@ class IoMap(BaseModel):
     beckhoff: dict[str, IoBinding] = Field(default_factory=dict)
     plcopen: dict[str, IoBinding] = Field(default_factory=dict)
     iec: dict[str, IoBinding] = Field(default_factory=dict)
+    epics: dict[str, IoBinding] = Field(default_factory=dict)
 
     def section(self, backend: str) -> dict[str, IoBinding]:
         return getattr(self, backend, {}) or {}

@@ -255,6 +255,16 @@ is quarantined as a commented `st` block and listed in the report.
 Prove fidelity behaviorally: write scenarios against the old program's
 known behavior and run them on the adopted IR.
 
+## …expose the PLC to EPICS?
+
+Add `epics` to the manifest's `targets:`. The backend emits
+`out/epics/<Name>.db` — one record per directional tag (bi/bo/ai/ao),
+site prefix and transport as macros (`$(P)`, `$(LINK=)` — OPC UA,
+s7plc, or Modbus is a load-time choice, not a design property), alarm
+severities wired from the IR's alarm elements, fail-safe `_ok` inputs
+alarming on 0 — plus `<Name>-alarms.csv` as the alarm-handler/archiver
+seed. An `epics:` section in the iomap pins concrete links.
+
 ## …add a new vendor?
 
 A backend is one self-contained module rendering the neutral statement

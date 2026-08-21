@@ -65,7 +65,7 @@ is the IR-with-domain-semantics and theorem auto-generation.
 | semantic `ladder diff` ("interlock X gained input Y") for reviews | Copia's lesson | **adopted** (`ladder diff old new`: field-level design-language changes, scan-order warnings) |
 | mutation testing of the IR to score scenario/theorem strength | STMutants | **adopted** (`ladder mutate`: semantic fault injection, survivor report; scaffold suite scores 100%) |
 | emulator-in-the-loop stage after artifact build (PLCSIM Adv. / Logix Echo) | Rockwell AT002 | roadmap |
-| emit EPICS/OPC UA interface artifacts from the same IR | pytmc/ESS | roadmap (labs will ask immediately) |
+| emit EPICS/OPC UA interface artifacts from the same IR | pytmc/ESS | **adopted** (`epics` backend: .db records + alarm list, transport-agnostic macros) |
 | structured models over string templates (ESS rebuilt to learn this) | PLC Integrator | already LADDER's core design |
 
 ## Citable references

@@ -7,7 +7,14 @@ from ladder.backends.base import Backend, BackendError, get_backend, registry  #
 
 def _register_all() -> None:
     # imported lazily so `import ladder` stays cheap and backend deps stay isolated
-    from ladder.backends import beckhoff, iec, plcopen, rockwell, siemens  # noqa: F401
+    from ladder.backends import (  # noqa: F401
+        beckhoff,
+        epics,
+        iec,
+        plcopen,
+        rockwell,
+        siemens,
+    )
 
 
 def _register_plugins() -> None:
