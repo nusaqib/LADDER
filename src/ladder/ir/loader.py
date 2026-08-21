@@ -82,6 +82,56 @@ def load_ir_data(path: str | Path) -> dict:
     return data
 
 
+class IRLoadError(ValueError):
+    """Schema-level failure, reported with file/line context."""
+
+
+def _yaml_line(text: str, loc: tuple) -> int | None:
+    """Line number (1-based) of a pydantic error location in YAML text."""
+    try:
+        node = yaml.compose(text)
+    except yaml.YAMLError:
+        return None
+    for key in loc:
+        if node is None:
+            return None
+        if isinstance(node, yaml.MappingNode):
+            node = next((v for k, v in node.value if k.value == str(key)), None)
+        elif isinstance(node, yaml.SequenceNode) and isinstance(key, int):
+            node = node.value[key] if key < len(node.value) else None
+        else:
+            break
+    return node.start_mark.line + 1 if node is not None else None
+
+
+def _friendly_validation_error(e, path: Path) -> str:
+    """Pydantic ValidationError -> human-readable, line-numbered report."""
+    text = path.read_text(encoding="utf-8") if path.is_file() else None
+    lines = [f"{path}: the IR does not match the schema "
+             f"({e.error_count()} issue(s)):"]
+    seen: set[tuple] = set()
+    for err in e.errors():
+        loc = tuple(err["loc"])
+        # union validators repeat per branch; report each place once
+        anchor = loc[:4]
+        if anchor in seen:
+            continue
+        seen.add(anchor)
+        where = ".".join(str(x) for x in loc)
+        pin = ""
+        if text is not None:
+            ln = _yaml_line(text, loc)
+            if ln:
+                pin = f"  ({path.name}:{ln})"
+        lines.append(f"  {where}: {err['msg']}{pin}")
+        if len(lines) > 9:
+            lines.append(f"  ... and more (total {e.error_count()})")
+            break
+    lines.append("hint: `ladder schema` prints the full contract; element "
+                 "docs are in docs/IR-SPEC.md")
+    return "\n".join(lines)
+
+
 def load_project(path: str | Path, expand: bool = True) -> Project:
     """Parse an IR file OR modular directory into a schema-validated
     Project.
@@ -90,7 +140,13 @@ def load_project(path: str | Path, expand: bool = True) -> Project:
     validation (name resolution, writability, vendor-portable identifiers)
     is a separate pass: ladder.ir.validate.validate_project.
     """
-    project = Project.model_validate(load_ir_data(path))
+    from pydantic import ValidationError
+
+    data = load_ir_data(path)
+    try:
+        project = Project.model_validate(data)
+    except ValidationError as e:
+        raise IRLoadError(_friendly_validation_error(e, Path(path))) from None
     if expand:
         from ladder.patterns import expand_project  # lazy: avoid import cycle
 

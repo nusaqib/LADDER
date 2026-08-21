@@ -20,15 +20,25 @@ from ladder.ir.validate import validate_project
 
 
 def _load_validated(path: str):
-    project = load_project(path)
+    from ladder.ir.loader import IRLoadError
+
+    try:
+        project = load_project(path)
+    except IRLoadError as e:
+        raise SystemExit(str(e)) from None
     validate_project(project).raise_if_failed()
     return project
 
 
 def cmd_validate(args) -> int:
+    from ladder.ir.loader import IRLoadError
     from ladder.ir.validate import lint_project
 
-    project = load_project(args.ir)
+    try:
+        project = load_project(args.ir)
+    except IRLoadError as e:
+        print(str(e), file=sys.stderr)
+        return 1
     res = validate_project(project)
     for warn in lint_project(project):
         print(f"  {warn}")
@@ -298,7 +308,14 @@ def cmd_check(args) -> int:
     failed = False
 
     # 1. validate + lint
-    project = load_project(root / manifest.ir)
+    from ladder.ir.loader import IRLoadError
+
+    try:
+        project = load_project(root / manifest.ir)
+    except IRLoadError as e:
+        print(str(e), file=sys.stderr)
+        print("validate   FAILED (schema)", file=sys.stderr)
+        return 1
     res = validate_project(project)
     for w in lint_project(project):
         print(f"  {w}")
@@ -435,6 +452,69 @@ def cmd_deploy(args) -> int:
     return 1 if failed else 0
 
 
+def cmd_render(args) -> int:
+    """Human-readable HTML logic report: rungs, scenarios, theorems."""
+    from ladder.render import render_html
+    from ladder.scaffold import ManifestError, load_manifest
+
+    src = Path(args.directory)
+    scenarios = None
+    if src.is_file():
+        project = _load_validated(src)
+        out = Path(args.out or src.with_suffix(".report.html"))
+    else:
+        try:
+            manifest, root = load_manifest(src)
+        except ManifestError as e:
+            print(str(e), file=sys.stderr)
+            return 1
+        project = _load_validated(root / manifest.ir)
+        if manifest.scenarios:
+            scenarios = root / manifest.scenarios
+        if args.out:
+            out = Path(args.out)
+            if not out.is_absolute():
+                out = root / out
+        else:
+            out = root / manifest.out / "report.html"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render_html(project, scenarios), encoding="utf-8")
+    print(f"report -> {out}")
+    return 0
+
+
+def cmd_doctor(args) -> int:
+    """Preflight: report what this machine can run and what's missing."""
+    from ladder.doctor import format_report, run_doctor
+
+    project_dir = args.directory if Path(args.directory, "ladder.yaml").exists() else None
+    print(format_report(run_doctor(project_dir)))
+    return 0
+
+
+def cmd_apply(args) -> int:
+    """Land an assistant's intake response (three fenced blocks) into the
+    project, then run the full check gate on it."""
+    from ladder.apply import ApplyError, apply_response
+    from ladder.scaffold import ManifestError
+
+    try:
+        written = apply_response(args.response, args.directory)
+    except (ApplyError, ManifestError) as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    for p in written:
+        print(f"  wrote {p}")
+    print("running the gate on the applied draft:")
+    args2 = argparse.Namespace(directory=args.directory, junit=None)
+    rc = cmd_check(args2)
+    if rc != 0:
+        print("\nthe draft did not pass - feed the issue codes above back "
+              "to the assistant (or fix by hand) and apply again",
+              file=sys.stderr)
+    return rc
+
+
 def cmd_docs(args) -> int:
     from ladder.docgen import generate_docs, load_doc_inputs
 
@@ -534,6 +614,28 @@ def main(argv: list[str] | None = None) -> int:
                         "only they have, then drafts map/IR/scenarios")
     p.add_argument("-o", "--out", default=None, help="write to file (default: stdout)")
     p.set_defaults(fn=cmd_prompt)
+
+    p = sub.add_parser("doctor", help="preflight: what can this machine run, "
+                                      "what is missing, and how to fix it")
+    p.add_argument("directory", nargs="?", default=".",
+                   help="project root (adds manifest/deploy checks)")
+    p.set_defaults(fn=cmd_doctor)
+
+    p = sub.add_parser("apply", help="land an assistant's intake response "
+                                     "(design map + IR + scenarios fenced "
+                                     "blocks) into the project and run check")
+    p.add_argument("response", help="file holding the model's full response")
+    p.add_argument("directory", nargs="?", default=".",
+                   help="project root containing ladder.yaml (default: .)")
+    p.set_defaults(fn=cmd_apply)
+
+    p = sub.add_parser("render", help="human-readable HTML logic report: ladder "
+                                      "rung art, scenarios, safety theorems")
+    p.add_argument("directory", nargs="?", default=".",
+                   help="project root with ladder.yaml, or a single IR file")
+    p.add_argument("-o", "--out", default=None,
+                   help="output file (default: <out>/report.html)")
+    p.set_defaults(fn=cmd_render)
 
     p = sub.add_parser("adopt", help="reverse adoption: vendor project spec -> IR "
                                      "(siemens: Export-TiaToSpec folder)")

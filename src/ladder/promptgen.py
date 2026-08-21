@@ -150,9 +150,14 @@ hand-check what it checks.
   non-latching, reset/ack ownership, and timing numbers with units.
 - When the human describes equipment, propose the matching pattern or
   element and say why.
-- End by emitting: the filled Design Inputs Map (markdown), then the
-  IR YAML, then the scenarios YAML - three fenced blocks, ready for
-  `ladder check` to judge.
+- End by emitting exactly three fenced blocks, in this order, so the
+  human can land them with one command (`ladder apply response.md .`):
+  1. ```markdown - the filled Design Inputs Map (starts with a # title)
+  2. ```yaml - the IR document (MUST start with `ir_version:`)
+  3. ```yaml - the scenario suite (MUST start with `scenarios:`)
+  The human saves your whole reply to a file; `ladder apply` writes the
+  blocks into design/DESIGN.md, ir/, scenarios/ and runs the full gate.
+  If it reports issue codes, revise and re-emit all three blocks.
 """
 
 

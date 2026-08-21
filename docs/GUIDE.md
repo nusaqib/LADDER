@@ -26,6 +26,30 @@ The manifest's `requires: ">=0.2,<0.3"` refuses to run under any other
 toolchain version. To upgrade: `git -C vendor/LADDER pull`, re-run
 bootstrap, `ladder check`, commit the new pin only when green.
 
+## …show the logic to someone who doesn't read YAML?
+
+`ladder render .` → `out/report.html`: every program as ladder rung art
+(or ST pseudocode where logic isn't rung-shaped), beside the element
+table, the acceptance scenarios, and the safety theorems. This is the
+review artifact — regenerate it with every change, never edit it.
+
+## …find out why deploy doesn't work on this machine?
+
+`ladder doctor .` — a preflight checklist: toolchain, manifest gate,
+vendored submodule, nuXmv/matiec/XSD, and each vendor tool your
+`deploy:` list needs — each with the fix for anything missing.
+`python tools/fetch_verifiers.py` fetches nuXmv (and clones matiec)
+into `.tools/` where doctor and `ladder verify` find them.
+
+## …understand a failed proof?
+
+When `ladder verify -t smv` finds a violated theorem it writes
+`out/smv/<program>.replay.scenarios.yaml` — the nuXmv counterexample as
+a runnable scenario. Run it with `ladder test`: a PASS means the
+violation is concrete (step through it, fix the design, then invert the
+final `expect` to keep it as a regression); a FAIL usually means the
+trace rides on the timer over-approximation.
+
 ## …look up a standard or vendor API offline?
 
 `docs/reference/` in the LADDER repo (so `vendor/LADDER/docs/reference/`

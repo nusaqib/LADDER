@@ -45,7 +45,16 @@ ladder prompt --intake          # paste into any chat: it interviews YOU
 The intake contract makes the model ask, one section at a time, for
 exactly the ground-truth rows above — pushing on the classic field
 errors (BOOL senses, latch/reset ownership, timing units) — then emit
-the design map, IR, and scenarios for `ladder check` to judge.
+the design map, IR, and scenarios as three fenced blocks. Save the
+model's reply to a file and land it with one command:
+
+```bash
+ladder apply response.md .      # writes the blocks + runs the full gate
+ladder render .                 # the human-readable review artifact
+```
+
+If the gate reports issue codes, paste them back to the model and
+apply its revision — that *is* the loop.
 
 **Single-shot with feedback** — you already have a requirement text:
 

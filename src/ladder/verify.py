@@ -37,6 +37,19 @@ def _run(cmd: list[str], timeout: int = 900) -> tuple[int, str]:
     return p.returncode, (p.stdout + p.stderr).strip()
 
 
+def find_nuxmv() -> str | None:
+    """NUXMV_BIN, PATH, or the repo-local .tools/ (fetch_verifiers.py)."""
+    env = os.environ.get("NUXMV_BIN")
+    if env and Path(env).exists():
+        return env
+    hit = shutil.which("nuxmv") or shutil.which("nuXmv")
+    if hit:
+        return hit
+    repo = Path(__file__).parents[2]
+    tools = sorted(repo.glob(".tools/nuXmv-*/bin/nuXmv*"))
+    return str(tools[-1]) if tools else None
+
+
 def verify_iec(project: Project, outdir: Path) -> VerifyResult:
     """Syntax/semantics check of the neutral ST file with matiec's iec2c."""
     st = outdir / "iec" / f"{project.name}.st"
@@ -80,22 +93,44 @@ def verify_smv(project: Project, outdir: Path,
     """Model-check emitted SMV with nuXmv (env NUXMV_BIN or on PATH)."""
     from ladder.model_check import emit_project
 
-    bin_ = os.environ.get("NUXMV_BIN") or shutil.which("nuxmv") or shutil.which("nuXmv")
+    bin_ = find_nuxmv()
     if not bin_:
-        return VerifyResult("smv", "skip", "nuXmv not found (set NUXMV_BIN)")
+        return VerifyResult("smv", "skip", "nuXmv not found (set NUXMV_BIN, "
+                            "or run: python tools/fetch_verifiers.py)")
     files, skipped = emit_project(project, outdir / "smv", properties=properties)
     if not files:
         return VerifyResult("smv", "skip", "; ".join(skipped) or "nothing model-checkable")
-    failures = []
+    failures, replays = [], []
+    lowered = None
     for f in files:
         code, output = _run([bin_, "-dcx", str(f)])
         if code != 0:
             return VerifyResult("smv", "fail", f"nuXmv error on {f.name}: "
                                 f"{output.splitlines()[-1] if output else code}")
-        failures += [line.strip() for line in output.splitlines()
-                     if "is false" in line]
+        found = [line.strip() for line in output.splitlines()
+                 if "is false" in line]
+        failures += found
+        if found:
+            # rerun WITH counterexamples and pin them as replay scenarios
+            from ladder.ir.lower import lower_project
+            from ladder.replay import parse_nuxmv_output, replay_suite
+
+            _, cx_out = _run([bin_, str(f)])
+            traces = parse_nuxmv_output(cx_out)
+            if traces:
+                lowered = lowered or lower_project(project)
+                lp = lowered.get(f.stem)
+                if lp is not None:
+                    rp = f.with_name(f"{f.stem}.replay.scenarios.yaml")
+                    rp.write_text(replay_suite(project, lp, traces),
+                                  encoding="utf-8")
+                    replays.append(str(rp))
     if failures:
-        return VerifyResult("smv", "fail", "; ".join(failures[:3]))
+        detail = "; ".join(failures[:3])
+        if replays:
+            detail += " | replay scenario(s): " + "; ".join(replays) + \
+                " (run with `ladder test` - a PASS reproduces the violation)"
+        return VerifyResult("smv", "fail", detail)
     note = f"{len(files)} model(s), all properties proved"
     if skipped:
         note += f" ({len(skipped)} program(s) skipped)"

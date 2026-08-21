@@ -109,7 +109,19 @@ nothing sets the guard healthy. Add `guard_closed: true` to each
 scenario's first `set:` step. Green again — and your change is now
 *pinned* by the tests that just caught it.
 
-## 7. Where the vendor files went
+## 7. See it the way a reviewer will
+
+```powershell
+ladder render .
+```
+
+Open `out/report.html`: every program drawn as ladder rungs, the
+scenarios as tables, and the safety theorems — the artifact you hand to
+someone who doesn't read YAML. (And if anything on this machine is
+missing for a step you want — vendor tools, provers — `ladder doctor .`
+tells you exactly what and how to fix it.)
+
+## 8. Where the vendor files went
 
 ```
 out/siemens/    SCL sources + a build script for TIA Portal
@@ -123,7 +135,7 @@ If you have TIA Portal on this machine, add `deploy: [siemens@21]` to
 **openable TIA project** under `out/siemens/project/`. Everything under
 `out/` is disposable: regenerate it, never edit it.
 
-## 8. Now let an assistant drive the loop
+## 9. Now let an assistant drive the loop
 
 ```powershell
 ladder prompt --intake
@@ -131,11 +143,16 @@ ladder prompt --intake
 
 Paste the output into any chat model: it interviews **you** for the
 ground truth only you have (signals and their senses, what trips what,
-who may reset, the acceptance stories), then drafts the design map, IR,
-and scenarios — and `ladder check .` judges the draft exactly as it
-judged yours in steps 3–6. That loop — assistant drafts, machine gates,
-you decide — is how real projects are built; the full contract is in
-[WORKFLOW](WORKFLOW.md).
+who may reset, the acceptance stories), then answers with three fenced
+blocks. Save its reply to a file and land it in one command:
+
+```powershell
+ladder apply response.md .    # writes design/IR/scenarios + runs the gate
+ladder render .               # regenerate the human-readable report
+```
+
+That loop — assistant drafts, machine gates, you decide — is how real
+projects are built; the full contract is in [WORKFLOW](WORKFLOW.md).
 
 ## Where next
 
