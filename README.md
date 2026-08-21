@@ -44,6 +44,13 @@ in parameters against one well-specified schema — a small, constrained,
 checkable generation problem — while everything vendor-quirky lives in
 deterministic code.
 
+## Where to start
+
+New here → **[Getting started](docs/GETTING-STARTED.md)** (10 minutes).
+Building something real → **[the tutorial](docs/TUTORIAL.md)**.
+Mid-task question → **[the guide](docs/GUIDE.md)**.
+Full reference → **[docs/](docs/README.md)**.
+
 ## Quick start
 
 ```powershell
