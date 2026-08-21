@@ -104,6 +104,11 @@ markdown with name/description frontmatter):
   IO-map, import/compile, and triage procedures.
 - **verification** — the four proof layers (simulate, lint, matiec,
   nuXmv) and what each does and does not prove.
+- **documentation** — the deliverable document package: `ladder docs`
+  generates requirements / software spec / conventions / developer and
+  operator manuals / verification report from the IR; the skill also
+  covers the authored documents generation cannot know (C&E matrix,
+  SAT procedure, alarm response sheets, decision/finding registers).
 
 The intended flow: design-intake → ir-authoring → vendor skill, with
 verification before any handoff.
