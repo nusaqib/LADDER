@@ -39,10 +39,30 @@ my-plant/
 ├── ir/<slug>.yaml                 # the IR: the only hand-written logic source
 ├── scenarios/<slug>.scenarios.yaml# acceptance behavior (definition of done)
 ├── iomaps/<slug>.iomap.yaml       # vendor addresses/aliases (never in the IR)
+├── docs/generated/                # `ladder docs`: requirements → operator manual
 ├── out/                           # generated artifacts — git-ignored, never edited
 ├── README.md / AGENTS.md / CLAUDE.md
 └── .github/workflows/verify.yml   # CI: `ladder check .` on every push
 ```
+
+### Modular IR (larger projects)
+
+`ir:` in the manifest may point at a **directory** instead of one file —
+sections split into files a reviewer can own separately:
+
+```
+ir/
+├── project.yaml          # name, description, vendor hints
+├── types.yaml            # UDTs        (or types/*.yaml fragments)
+├── tags.yaml             # signal list (or tags/*.yaml fragments)
+└── programs/
+    ├── 10_inputs.yaml    # one program per file; filename order IS the
+    ├── 20_protection.yaml#   scan/call order — number the prefixes
+    └── 30_sequence.yaml
+```
+
+Hardware stays in `iomaps/` either way; generated projects emit this
+layout from their generator (edit the generator, never the YAML).
 
 Ordering rule that makes projects stay healthy: **design map → IR →
 scenarios → check**. The map is the contract with the plant; the IR is

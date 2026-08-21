@@ -36,6 +36,7 @@ python -m venv .venv
 
 .venv\Scripts\ladder init C:\work\my-plant   # scaffold a user project (own repo)
 .venv\Scripts\ladder check C:\work\my-plant  # its full acceptance gate
+.venv\Scripts\ladder docs  C:\work\my-plant  # generate its documentation package
 
 .venv\Scripts\ladder validate examples\vacuum_interlock.yaml
 .venv\Scripts\ladder build examples\vacuum_interlock.yaml -t all -o out
@@ -108,6 +109,9 @@ structure:
 | IO maps (`--iomap`): hardware bindings outside the IR | ✅ Siemens addresses, Logix alias tags, TwinCAT/IEC located vars |
 | `alarm_group` — annunciator with common ack, horn, first-out capture | ✅ semantics scenario-pinned; horn/first-out theorems proved by nuXmv |
 | **All five IEC 61131-3 languages** (`language:` per program) | ✅ ST everywhere; IL (matiec-proved); LD → Rockwell RLL + PLCopen; FBD/SFC → PLCopen; tc6-XSD-validated in CI |
+| Safety elements: `dual_channel` (1oo2 + discrepancy), `search_chain` (PPS area search) | ✅ semantics from a reviewed reference PPS; auto-theorems proved by nuXmv (UDT members supported) |
+| **Modular IR**: `ir/` directory (project/types/tags/programs per file) | ✅ filename order = scan order; large projects split into reviewable sections |
+| `ladder docs` — the generated documentation package | ✅ requirements, software spec, conventions, developer + operator manuals, verification report |
 | Studio 5000 L5X import validation | ⬜ manual: open `out\rockwell\*.L5X` in v36 (SDK 2.x for automation) |
 | Vendor engines (structure adoption from reference programs) | ⬜ next — see [docs/ROADMAP.md](docs/ROADMAP.md) |
 | Pattern library from reference programs | ⬜ seeded |
