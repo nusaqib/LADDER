@@ -3,15 +3,19 @@
 **L**LM-**A**ssisted **D**esign & **D**eployment of **E**ngineering **R**outines —
 vendor-agnostic PLC program generation from a declarative, verifiable design.
 
-**LADDER is human-first and fully self-contained.** An engineer authors the
-design directly — a modular, segregated spec (design map, tags, UDTs, one
-program per file, IO map) that reads like design documentation, not code —
-and LADDER validates it, simulates it, proves it, and renders real
-engineering artifacts for every vendor. **The LLM is an optional catalyst**:
-because the contract is a plain JSON Schema and YAML, any model (hosted or
-local) can draft the same spec for the human to review — the skills, prompt
-bundle, and generation loop exist for that — but nothing in the pipeline
-requires one.
+**LADDER separates what must be deterministic from what benefits from
+intelligence.** The core — validation, lowering, simulation, formal proof,
+vendor builds — is deterministic, LLM-free code, forever; that is what makes
+the rest safe. On top of it, production projects come together as a **loop**:
+an assistant (any LLM, hosted or local — the contract is plain JSON Schema +
+YAML) drafts the design map, IR, and scenarios; the machine judges every
+draft with the same gates a human's edit would face; the human provides the
+ground truth only they have (signals and their senses, safety philosophy,
+acceptance stories, hardware reality) and signs off at defined review gates.
+An expert can still author every line by hand — same gates, no assistant.
+The split of who provides what is spelled out in
+[docs/WORKFLOW.md](docs/WORKFLOW.md); `ladder prompt --intake` turns any
+chat model into the guided interviewer.
 
 ```mermaid
 flowchart TB

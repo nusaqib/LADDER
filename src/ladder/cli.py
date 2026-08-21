@@ -210,11 +210,18 @@ def cmd_bench(args) -> int:
 
 
 def cmd_prompt(args) -> int:
-    from ladder.promptgen import build_prompt
+    from ladder.promptgen import build_intake_prompt, build_prompt
 
-    src = Path(args.requirement)
-    requirement = src.read_text(encoding="utf-8") if src.is_file() else args.requirement
-    text = build_prompt(requirement)
+    if getattr(args, "intake", False):
+        text = build_intake_prompt()
+    else:
+        if not args.requirement:
+            print("a requirement is needed (or use --intake)", file=sys.stderr)
+            return 1
+        src = Path(args.requirement)
+        requirement = (src.read_text(encoding="utf-8") if src.is_file()
+                       else args.requirement)
+        text = build_prompt(requirement)
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")
         print(f"wrote {args.out} ({len(text)} chars) - paste into any LLM")
@@ -519,7 +526,12 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("prompt", help="build a model-agnostic IR-generation prompt "
                                       "bundle (schema + rules + patterns) for any LLM")
-    p.add_argument("requirement", help="requirement text, or a path to a text file")
+    p.add_argument("requirement", nargs="?", default=None,
+                   help="requirement text, or a path to a text file")
+    p.add_argument("--intake", action="store_true",
+                   help="emit the design-intake interview contract instead: "
+                        "an LLM interviews the human for the ground truth "
+                        "only they have, then drafts map/IR/scenarios")
     p.add_argument("-o", "--out", default=None, help="write to file (default: stdout)")
     p.set_defaults(fn=cmd_prompt)
 

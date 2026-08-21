@@ -10,6 +10,8 @@ Pick your entry point by what you're doing — the slope is deliberate:
    requirement: design map → interlock → patterns → annunciator →
    proofs → deliverables.
 3. **[Guide](GUIDE.md)** — "how do I…" recipes, one task each.
+4. **[Workflow](WORKFLOW.md)** — the authoring loop: human ground truth,
+   LLM drafts, machine gates — who provides what.
 
 ## Reference (when you need it)
 

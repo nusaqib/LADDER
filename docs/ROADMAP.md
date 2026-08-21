@@ -20,7 +20,8 @@ vendor-neutral *semantic* IR with deterministic lowering to five
 backends, **auto-generated safety theorems per element type** (every
 prior system needs hand-written properties), scenario simulation +
 proof + docs from one artifact, in self-contained git/CI projects, with
-the LLM as an optional, schema-gated assistant. Closest prior art:
+authoring as a human-gated LLM loop over a deterministic, LLM-free core
+(who provides what: [WORKFLOW](WORKFLOW.md)). Closest prior art:
 CERN's PLCspecif (spec→Siemens ST + verification, research prototype).
 Ecosystem we interoperate with: matiec (CI compiles our IEC text), the
 official PLCopen tc6 XSD (CI validates our XML), nuXmv (proves our

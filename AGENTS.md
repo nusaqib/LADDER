@@ -124,6 +124,16 @@ its first commit. Projects are self-contained: LADDER rides along as the
 `vendor/LADDER` submodule, pinned by the manifest's `requires:` and
 installed by `tools/bootstrap`.
 
+## The authoring loop
+
+[docs/WORKFLOW.md](docs/WORKFLOW.md) defines the three-actor split:
+the human owns ground truth and sign-off, the assistant (you) drafts
+map/IR/scenarios, the deterministic machine judges every draft. Never
+invent plant facts — interview for them (`ladder prompt --intake` is
+the contract) or record an explicit ASSUMPTION; never hand-check what
+`ladder check` checks; treat validator issue codes and failing
+scenarios as your feedback channel.
+
 ## Look things up offline first
 
 [docs/reference/](docs/reference/README.md) is an original-authored

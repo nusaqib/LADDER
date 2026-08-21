@@ -156,14 +156,18 @@ verification report. Regenerate in the same commit as any logic change.
 
 ## …use an LLM to draft the design?
 
-Optional, by design. `ladder prompt "<requirement>"` prints the complete
-model-facing contract (rules, elements, JSON Schema) for any chat; or
-wire a CLI into the closed loop:
+The recommended loop for real projects — see [WORKFLOW](WORKFLOW.md) for
+who provides what. `ladder prompt --intake` prints an interview contract
+for any chat model: it asks *you* for the ground truth (signals, senses,
+safety philosophy, acceptance stories), then drafts the map, IR, and
+scenarios for `ladder check` to judge. With a requirement text already
+in hand: `ladder prompt "<requirement>"` for one-shot drafting, or
 `ladder generate "<requirement>" --cmd "<llm-cli>" --accept scenarios.yaml`
-— the validator's issue codes and your scenarios are the feedback, and a
-human reviews the result like any other change. The `skills/` folder
-holds the deeper workflows (intake, authoring, deploy, verification,
-documentation) for agent frameworks.
+for the mechanically closed loop — validator issue codes and your
+scenarios are the feedback, and a human reviews the result like any
+other change. The pipeline itself never needs a model: the same gates
+run standalone. The `skills/` folder holds the deeper workflows (intake,
+authoring, deploy, verification, documentation) for agent frameworks.
 
 ## …bring an existing TIA program into LADDER?
 

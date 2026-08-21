@@ -11,6 +11,13 @@ A filled map is an authoring artifact (markdown or YAML — it is read by
 people and agents, not parsed by the tool). Keep it next to the IR it
 produced, e.g. `myproject.design.md` beside `myproject.yaml`.
 
+**Who fills what:** the human is the only valid source for the ground
+truth (sections 2, 4, 5 senses and authorities, 9 acceptance stories,
+10 hardware); an assistant may draft everything else *from* those
+answers, for review. `ladder prompt --intake` turns any chat model into
+the interviewer that walks this map section by section — the full
+segregation is in [WORKFLOW.md](WORKFLOW.md).
+
 ## Why a map at all
 
 Plain-language requirements reliably omit the same things: signal sense

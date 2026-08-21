@@ -1,0 +1,304 @@
+% LADDER — JACoW-formatted conference paper (IPAC-style contributed paper).
+% Class: jacow.cls v3.01 (vendored alongside; latest from
+% https://github.com/JACoW-org/JACoW_Templates).
+% Compile: pdflatex (twice) or drop both files into Overleaf.
+% Page option: choose a4paper/letterpaper per the host conference.
+% TODO before submission: author full name/initials, co-authors,
+% funding footnote text per LBNL guidance, and LBNL/DOE release approval.
+\documentclass[letterpaper]{jacow}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{url}
+
+\begin{document}
+
+\title{LADDER: HUMAN-FIRST, VENDOR-NEUTRAL GENERATION OF VERIFIED PLC PROGRAMS}
+
+\author{N. Saqib\thanks{nusaqib@lbl.gov}, Lawrence Berkeley National Laboratory, Berkeley, CA, USA}
+
+\maketitle
+
+\begin{abstract}
+Accelerator facilities depend on programmable logic controllers (PLCs)
+whose programs live inside proprietary, binary, vendor-specific project
+files: hard to review, hard to diff, and locked to one toolchain.
+LADDER is an open toolkit that inverts this: control logic is authored
+once as a declarative, schema-validated intermediate representation (IR)
+of domain elements --- interlocks, redundant (1oo2) inputs, search/arming
+chains, annunciator groups, timers, state machines, PID loops --- and
+everything vendor-specific is generated deterministically. One IR
+document drives five backends (Siemens TIA Portal via the Openness API,
+Rockwell L5X, PLCopen XML, Beckhoff TwinCAT, and plain IEC~61131-3
+text), a scan-accurate simulator with declarative acceptance scenarios,
+a documentation package, and a formal-verification path that emits SMV
+models with safety theorems derived automatically from each element's
+semantics and proves them with nuXmv. Projects are self-contained git
+repositories with pinned toolchains and continuous integration.
+Authoring is organized as a human-gated loop over this deterministic,
+LLM-free core: an assistant (any model) interviews the engineer for the
+ground truth only they have and drafts the design map, IR, and
+scenarios; the machine judges every draft with the same gates a human
+edit would face; the engineer reviews and signs off. We describe the IR, the lowering and
+verification pipeline, and a case study in which a personnel protection
+system's fail-safe PLC program was reconstructed exactly --- including
+certified F-instruction instances and the operator HMI --- from
+version-controlled design sources with a single command.
+\end{abstract}
+
+\section{Introduction}
+
+PLC programs at accelerator facilities concentrate three risks. First,
+\emph{opacity}: the source of truth is a binary project file that
+cannot be meaningfully diffed or reviewed in a pull request. Second,
+\emph{vendor lock-in}: logic expressed as one vendor's ladder diagrams
+cannot move to another platform, and often not even across versions of
+the same tool. Third, \emph{informal change control}: modifications are
+made interactively in an engineering IDE, so the actual safety-relevant
+logic and its documentation drift apart.
+
+Laboratories have long mitigated the symptoms by generating PLC code
+from structured inputs~\cite{unicos,plcfactory,pyplc}, and CERN's
+PLCverif has shown that model checking real PLC programs is practical
+in production, including on a personnel safety system~\cite{plcverif15,
+plcverif-status}. More recently, large language models (LLMs) have been
+applied to Structured Text generation with compiler and model-checker
+feedback~\cite{llm4plc,agents4plc}. LADDER combines these threads
+differently: a vendor-neutral IR with domain semantics is the single
+reviewed artifact, and generation, simulation, formal proof,
+documentation, and multi-vendor deployment are all derived from it
+deterministically. Authoring inverts the LLM-first framing: the
+assistant's output is constrained, schema-validated YAML --- never
+vendor code --- judged by the same deterministic gates as a human
+edit, with the human supplying ground truth (signal senses, safety
+philosophy, acceptance stories) and deciding at review gates. The
+pipeline also runs entirely without a model.
+
+\section{Related Work}
+
+Config-to-code generation is established lab practice: UNICOS-CPC
+instantiates a standard object model into Siemens and Schneider
+code~\cite{unicos}; ESS's PLC Factory and its successor generate
+Siemens blocks and EPICS interfaces from device
+databases~\cite{plcfactory}; ALBA correlates equipment databases with
+protection-logic templates~\cite{pyplc}. On the verification side,
+PLCverif builds scan-accurate models from existing Siemens code and
+checks requirements with nuXmv and other backends~\cite{plcverif15,
+plcverif-status}; Arcade.PLC~\cite{arcade} and recent BMC-based
+tools~\cite{esbmcplc} verify existing code similarly. The closest
+single system in spirit is PLCspecif, a research-prototype formal
+specification language generating Siemens code and supporting
+verification~\cite{plcspecif}. LLM4PLC~\cite{llm4plc} and
+Agents4PLC~\cite{agents4plc} generate free-form Structured Text inside
+feedback loops. Vendors now endorse text-based, CI-built PLC workflows
+(Siemens SIMATIC AX; Rockwell's CI/CD reference architecture with the
+Logix Designer SDK~\cite{at002}).
+
+To our knowledge, no prior system combines a vendor-neutral
+\emph{semantic} IR, deterministic lowering to multiple real vendor
+toolchains, and safety theorems \emph{generated automatically from
+element semantics} rather than written by hand; that combination is
+LADDER's contribution.
+
+\section{The Intermediate Representation}
+
+A LADDER project is YAML: user-defined types, a typed tag list with
+explicit directions, and programs whose logic is a sequence of
+\emph{elements}. Elements carry domain semantics, not syntax:
+
+\begin{itemize}
+\item \texttt{interlock}: permissive chain with latching trip and a
+  named manual reset; the output is a permit.
+\item \texttt{dual\_channel}: 1oo2 evaluation of a redundant input pair
+  with discrepancy-time monitoring, a latched fault, and an
+  acknowledge contract mirroring PROFIsafe F-DI behavior.
+\item \texttt{search\_chain}: a search/arming sequence in which
+  stations latch on the rising edge of their key, in walk order, only
+  while a precondition holds; any breach clears the whole chain in one
+  scan, and the element deliberately has no input that can restore a
+  completed search.
+\item \texttt{alarm\_group}: an ISA-18.2-style annunciator with
+  per-member latches, shared horn and acknowledge, and first-out
+  capture.
+\item \texttt{alarm}, \texttt{timer}, \texttt{state\_machine},
+  \texttt{scale}, \texttt{pid} (clamping anti-windup, bumpless
+  enable), \texttt{assign}, plus expandable equipment patterns
+  (e.g.\ motor starter) and a raw escape hatch.
+\end{itemize}
+
+Fail-safe conventions are enforced by validation and lint rules
+(machine-actionable issue codes): Boolean inputs mean
+1\,=\,OK/healthy, interlock outputs are permits, every latching
+element names its reset or acknowledge, and hardware addresses are
+banned from the IR --- they live in per-vendor IO maps. Programs may
+declare any of the five IEC~61131-3 languages as their
+\emph{presentation}; an expressibility check rejects logic that does
+not fit the chosen language. Larger systems split the IR into a
+reviewable directory (types, tags, one program per file, filename
+order defining scan order).
+
+\section{Deterministic Lowering and Backends}
+
+Validation is followed by lowering to a small neutral statement AST
+(assignments, conditionals, timer calls) with synthesized state
+variables for edges, latches, and timers. Backends render this AST:
+Siemens (SCL sources plus a headless build script that drives TIA
+Portal Openness to an openable, compiled project), Rockwell (a
+complete L5X with native ladder rung text and TIMER tags), PLCopen
+tc6 XML (LD/FBD/SFC graphic bodies), Beckhoff TwinCAT source files,
+and plain IEC~61131-3 text. Backends are versioned
+(\texttt{siemens@21}, \texttt{rockwell@36}) so tool-generation quirks
+stay behind one switch, and third-party backends load through a
+plugin entry point.
+
+Two vendor-free proofs run in continuous integration on every commit:
+the emitted IEC text (ST, IL, and textual SFC) is compiled by the open
+matiec compiler, and the emitted PLCopen XML is validated against the
+official tc6 XSD. Ladder rendering uses a neutral rung model with
+order-safety guards, so a rung realization that would change scan
+semantics is rejected rather than silently emitted.
+
+\section{Verification}
+
+Three layers of evidence are generated from the same IR. First, a
+\emph{scan-accurate simulator} executes the lowered AST with real
+timer semantics; declarative scenario suites (set, pulse, run,
+expect) are the project's acceptance gate and run in CI, with JUnit
+output. Second, \emph{static lint} flags design smells such as
+unreset latches or unread inputs. Third, \texttt{ladder model} emits
+an SMV model per program via symbolic execution --- timers soundly
+over-approximated so proofs hold for every preset --- and
+\emph{auto-generates safety theorems from each element's semantics}:
+an interlock output implies all its permissives; a dual-channel
+output implies both channels; no acknowledge path can set a search
+latch; a completed search implies every station latched in order.
+User-supplied invariants join as
+\texttt{given}/\texttt{always} pairs. nuXmv~\cite{nuxmv} proves the
+result with BDDs, or IC3 for large programs; in the case study below,
+79 theorems are proved, the largest models ($\sim$250 state bits)
+via IC3.
+
+\section{Self-Contained Projects}
+
+Plant logic lives outside the toolkit, one git repository per machine,
+scaffolded with a working starter. Each project vendors the exact
+LADDER toolchain as a git submodule installed into a project-local
+environment by a bootstrap script, and the manifest's version gate
+refuses to run under any other toolchain --- a fresh machine needs
+only git and Python to reproduce every artifact. \texttt{ladder docs}
+generates the documentation package (requirements with one SHALL
+statement per element, software specification, conventions, developer
+and operator manuals, and a verification report) from the same IR, so
+documentation cannot drift from logic. The LLM harness is
+model-agnostic: \texttt{ladder prompt --intake} turns any chat model
+into a design-intake interviewer that asks the engineer for exactly
+the ground truth the machine cannot derive; \texttt{ladder generate}
+closes the draft--validate--simulate loop mechanically around any
+model CLI; and a six-task scenario-scored benchmark compares models.
+Nothing in the pipeline requires a model.
+
+\section{Case Study: A Personnel Protection System Reproduction}
+
+As a forcing function against a real safety program, an operating
+storage-ring personnel protection system's PLC software (Siemens
+fail-safe, TIA Portal) was reverse-engineered into design sources ---
+CSV hardware and signal sheets plus LADDER IR --- and reconstructed
+exactly on a newer tool version (V19 reference, V21 rebuild). One
+command rebuilds, from nothing: an F-CPU with 16 remote-IO stations
+and 76 PROFIsafe modules; the as-built fail-safe data-block and type
+tree; 144 tags; three generated F-LAD blocks containing 66 certified
+safety-instruction instances (emergency stop, safety door, 1oo2
+evaluation) matching the reference count exactly; and a 14-screen
+operator HMI. The generated rungs are proved against a behavioral
+simulator before import, the project compiles with zero errors, and
+the portable path proves 79 safety theorems over the same logic. Two
+Openness API limitations (PROFIsafe destination addresses and
+integrated HMI connections are GUI-only) are documented as manual
+steps --- matching decisions recorded in the original project. The
+reproduction lives in a private repository; it is a study of
+reproducibility, \emph{not} a certified or deployable safety system.
+
+\section{Status and Outlook}
+
+LADDER is open-source-ready (BSD-style license with a safety
+disclaimer, contribution and security policies, CI); the IR is at
+version 0.2 with a semver/RFC process toward a frozen 1.0. Planned
+work includes requirement-pattern properties and counterexample
+replay as failing scenarios (following PLCverif's
+practice~\cite{plcverif-status}), mutation testing of scenario and
+theorem strength, EPICS interface artifacts from the same IR, and
+Rockwell/TwinCAT reverse adoption. Generated logic must always be
+reviewed by qualified controls engineers; LADDER is engineering
+automation and evidence generation, not certification.
+
+\section{Acknowledgments}
+
+This work was supported by the U.S. Department of Energy under
+Contract No.\ DE-AC02-05CH11231.
+% TODO: confirm funding/footnote wording per LBNL publication guidance.
+
+\begin{thebibliography}{9}
+
+\bibitem{unicos}
+E. Blanco Vi\~nuela \emph{et al.}, ``UNICOS CPC6: automated code
+generation for process control applications'', in \emph{Proc.
+ICALEPCS'11}, Grenoble, France, 2011.
+
+\bibitem{plcfactory}
+G. Ulm \emph{et al.}, ``PLC factory: automating routine tasks in
+large-scale PLC software development'', in \emph{Proc. ICALEPCS'17},
+Barcelona, Spain, 2017.
+
+\bibitem{pyplc}
+S. Rubio-Manrique \emph{et al.}, ``Integration of PLCs in Tango
+control systems using PyPLC'', in \emph{Proc. ICALEPCS'15},
+Melbourne, Australia, 2015.
+
+\bibitem{plcverif15}
+D. Darvas, B. Fern\'andez Adiego, and E. Blanco Vi\~nuela,
+``PLCverif: a tool to verify PLC programs based on model checking
+techniques'', in \emph{Proc. ICALEPCS'15}, Melbourne, Australia,
+2015, paper WEPGF092.
+
+\bibitem{plcverif-status}
+I. D. L\'opez-Miguel \emph{et al.}, ``PLCverif: status of a formal
+verification tool for programmable logic controllers'', in
+\emph{Proc. ICALEPCS'21}, Shanghai, China, 2022.
+
+\bibitem{llm4plc}
+M. Fakih \emph{et al.}, ``LLM4PLC: harnessing large language models
+for verifiable programming of PLCs in industrial control systems'',
+in \emph{Proc. ICSE-SEIP'24}, Lisbon, Portugal, 2024.
+
+\bibitem{agents4plc}
+Z. Liu \emph{et al.}, ``Agents4PLC: automating closed-loop PLC code
+generation and verification in industrial control systems using
+LLM-based agents'', arXiv:2410.14209, 2024.
+
+\bibitem{plcspecif}
+D. Darvas, E. Blanco Vi\~nuela, and I. Majzik, ``PLC code generation
+based on a formal specification language'', in \emph{Proc. IEEE
+INDIN'16}, Poitiers, France, 2016.
+
+\bibitem{arcade}
+S. Biallas, J. Brauer, and S. Kowalewski, ``Arcade.PLC: a
+verification platform for programmable logic controllers'', in
+\emph{Proc. ASE'12}, Essen, Germany, 2012.
+
+\bibitem{esbmcplc}
+K. Sun \emph{et al.}, ``ESBMC-PLC+: a unified IEC 61131-3 formal
+verification framework'', arXiv:2606.23870, 2026.
+
+\bibitem{at002}
+Rockwell Automation, ``Industrial DevOps: CI/CD for Logix control
+systems'', Application Technique LOGIX-AT002, 2023.
+
+\bibitem{nuxmv}
+R. Cavada \emph{et al.}, ``The nuXmv symbolic model checker'', in
+\emph{Proc. CAV'14}, Vienna, Austria, 2014.
+
+\end{thebibliography}
+
+\end{document}

@@ -16,6 +16,12 @@ mode that hurts people and equipment.
 
 ## The stance
 
+Respect the three-actor split (`docs/WORKFLOW.md`): the human is the
+only valid source of ground truth — signal senses, safety philosophy,
+reset/ack ownership, acceptance stories, hardware reality. You draft;
+they decide. Never fill a ground-truth cell with a guess: ask, or write
+an explicit `ASSUMPTION:` line the human must strike out.
+
 A principal engineer running intake is not a stenographer. The user's
 prose describes what they *want to happen*; your map must also capture
 what must happen **when things fail** — power loss, broken wire, stuck
